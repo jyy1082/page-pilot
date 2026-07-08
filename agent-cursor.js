@@ -144,12 +144,21 @@ export class AgentCursor {
    * or opts.highlightDuration is set to a number of ms for auto-fade.
    * Re-highlighting the same element replaces its existing box rather than
    * stacking a new one on top.
+   *
+   * `fallbackRect` is used when the element's own action (e.g. selecting a
+   * custom-dropdown option) closes/hides its container as a side effect —
+   * without it, getBoundingClientRect() on a now-hidden element returns a
+   * degenerate 0x0 rect at (0, 0), which would draw the box in the top-left
+   * corner of the page instead of skipping or using the last known position.
    */
-  _highlight(el) {
+  _highlight(el, fallbackRect) {
     if (!this.opts.highlightEnabled || !el || !el.getBoundingClientRect) return;
     this._removeHighlightBox(el);
 
-    const rect = el.getBoundingClientRect();
+    let rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0 && fallbackRect) rect = fallbackRect;
+    if (rect.width === 0 && rect.height === 0) return; // nothing visible to draw around
+
     const box = document.createElement('div');
     box.style.cssText = `
       position: fixed;
@@ -200,10 +209,18 @@ export class AgentCursor {
       for (const [el, box] of this._highlights) {
         if (!document.body.contains(el)) { this._removeHighlightBox(el); continue; }
         const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+          // Element (or an ancestor) is hidden right now — hide the box
+          // rather than snapping it to (0, 0), but keep tracking it in case
+          // it becomes visible again later (e.g. a dropdown reopened).
+          box.style.opacity = '0';
+          continue;
+        }
         box.style.left = (rect.left - 3) + 'px';
         box.style.top = (rect.top - 3) + 'px';
         box.style.width = (rect.width + 6) + 'px';
         box.style.height = (rect.height + 6) + 'px';
+        box.style.opacity = '1';
       }
       this._repositionScheduled = false;
     });
@@ -353,13 +370,14 @@ export class AgentCursor {
   /** Shared click animation + execution, reused by click() and chooseOption(). */
   async _animatedClick(el) {
     const { x, y } = await this._moveTo(el);
+    const preClickRect = el.getBoundingClientRect();
     this._ripple(x, y);
     const prevTransform = el.style.transform;
     el.style.transition = el.style.transition || 'transform 120ms ease-out';
     el.style.transform = 'scale(0.96)';
     setTimeout(() => { el.style.transform = prevTransform; }, 120);
     this.opts.onExecuteClick(el);
-    this._highlight(el);
+    this._highlight(el, preClickRect);
     await this._wait(this.opts.clickPause);
   }
 

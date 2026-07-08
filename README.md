@@ -139,6 +139,25 @@ new AgentCursor({
 })
 ```
 
+## Framework compatibility
+
+Works against React, Vue, and other framework-rendered UIs the same as
+plain HTML — the library only ever touches the real DOM, and every
+framework's UI ends up as real DOM nodes at runtime.
+
+- **Clicks** dispatch a real `el.click()`, which bubbles and is caught by
+  React's delegated event listeners exactly like a real mouse click.
+- **Typing and `select()`** go through the element's native property setter
+  rather than plain assignment, specifically to work around React's (and
+  some other frameworks') controlled-component value tracking — plain
+  `el.value = x` gets silently ignored by React's change detection even
+  after dispatching an `input`/`change` event, so this bypass is required
+  for `onChange` to actually fire.
+- Component libraries (MUI, Ant Design, etc.) that render a checkbox/switch
+  as a styled `<input>` under the hood work through `check()` as-is; ones
+  that render a fully custom `<div role="switch">` work through `check()`'s
+  ARIA support (see above).
+
 ## Known limits
 
 - A native `<select>`'s open option list is rendered by the OS/browser, not

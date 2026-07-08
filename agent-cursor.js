@@ -57,6 +57,26 @@
  *   cursor.destroy()
  */
 
+/**
+ * Set an <input>/<textarea>/<select>'s value via its native property setter
+ * rather than plain assignment. React (and some other frameworks) patch a
+ * "value tracker" onto these elements for controlled components; assigning
+ * el.value = x directly leaves the tracker's old value in place, so React's
+ * change-detection thinks nothing changed and skips onChange even after you
+ * dispatch an 'input'/'change' event. Going through the native setter avoids
+ * that tracker entirely.
+ */
+function setNativeValue(el, value) {
+  const proto = el.tagName === 'TEXTAREA'
+    ? window.HTMLTextAreaElement.prototype
+    : el.tagName === 'SELECT'
+      ? window.HTMLSelectElement.prototype
+      : window.HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+  if (setter) setter.call(el, value);
+  else el.value = value;
+}
+
 const DEFAULTS = {
   color: '#378ADD',
   size: 16,
@@ -81,13 +101,7 @@ const DEFAULTS = {
       el.dispatchEvent(new Event('input', { bubbles: true }));
       return;
     }
-    // Native setter bypasses React/Vue controlled-input interception.
-    const proto = el.tagName === 'TEXTAREA'
-      ? window.HTMLTextAreaElement.prototype
-      : window.HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-    if (setter) setter.call(el, text);
-    else el.value = text;
+    setNativeValue(el, text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
   },
   scrollSettleTimeout: 1200,
@@ -474,7 +488,7 @@ export class AgentCursor {
           opt.selected = value.includes(opt.value);
         }
       } else {
-        el.value = value;
+        setNativeValue(el, value);
       }
       el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new Event('input', { bubbles: true }));

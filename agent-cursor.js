@@ -109,7 +109,9 @@ const DEFAULTS = {
   zIndex: 999999,
   onExecuteClick: (el) => el.click(),
   onExecuteInput: (el, text) => {
-    if (el.isContentEditable) {
+    const editableAttr = el.getAttribute?.('contenteditable');
+    const isEditable = el.isContentEditable || editableAttr === 'true' || editableAttr === '';
+    if (isEditable) {
       // contenteditable div (rich-text editors, some custom input components)
       // has no .value — set textContent directly instead.
       el.textContent = text;
@@ -516,8 +518,12 @@ export class AgentCursor {
       if (this.opts.showScrollIndicator) this._showScrollIndicator(direction);
 
       const behavior = this.reduced ? 'auto' : 'smooth';
-      if (container) container.scrollTo({ top: targetTop, behavior });
-      else window.scrollTo({ top: targetTop, behavior });
+      if (container) {
+        if (typeof container.scrollTo === 'function') container.scrollTo({ top: targetTop, behavior });
+        else container.scrollTop = targetTop; // fallback for environments without element.scrollTo
+      } else {
+        window.scrollTo({ top: targetTop, behavior });
+      }
 
       if (!this.reduced) await this._waitForScrollSettle(container || window);
       if (this.opts.showScrollIndicator) this._hideScrollIndicator();
@@ -719,6 +725,7 @@ export class AgentCursor {
     this.queue = Promise.resolve();
     this._activeCount = 0;
     this.hideCursor();
+    this._hideScrollIndicator(); // in case stop() landed mid-scroll
     if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
     if (this._glowEl) {
       this._glowEl.style.opacity = '0';

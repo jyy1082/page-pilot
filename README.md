@@ -33,6 +33,7 @@ no build step needed, it's plain ES modules.
 - Checkbox/radio/switch support (including ARIA-based custom toggles) that only clicks when the state actually needs to change
 - Custom (div/li-based) dropdown menu support via `chooseOption`
 - Page and container scrolling, with scroll-settle detection and an optional direction indicator
+- Optional pulsing border around the whole viewport while any step is running — a clear "the system is driving this" signal for the person watching
 - Persistent highlight borders on every acted-on element (on by default,
   cleared explicitly or via `highlightDuration`), auto-repositioned on scroll/resize
 - Every operation is queued, so animations and actions never overlap
@@ -67,6 +68,14 @@ await cursor.scroll('#panel', { to: 'bottom' })  // scroll a container to its bo
 cursor.clearHighlight('#name')  // remove one persisted highlight
 cursor.clearHighlights()        // remove all of them
 cursor.destroy()
+```
+
+### "The system is doing this" page glow
+
+```js
+const cursor = new AgentCursor({ showPageGlow: true })
+// Now the whole viewport gets a pulsing colored border for as long as any
+// click/type/select/etc. is running, and it fades out once the queue is idle.
 ```
 
 ### Batch steps
@@ -128,6 +137,9 @@ new AgentCursor({
   respectReducedMotion: true,
   showCursorDot: true,
   showScrollIndicator: false,
+  showPageGlow: false,
+  pageGlowColor: null,
+  pageGlowWidth: 4,
   highlightEnabled: true,
   highlightColor: null,        // defaults to `color`
   highlightDuration: null,     // null = persists until cleared; number (ms) = auto-fade

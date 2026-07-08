@@ -42,6 +42,12 @@
  * indicator). Set showScrollIndicator: true to also show a small arrow badge
  * at the bottom of the screen while a scroll animation is in progress.
  *
+ * Set showPageGlow: true to pulse a colored border around the entire
+ * viewport for as long as any step is running — a "the system is driving
+ * this, not you" tell for the person watching. Off by default. Configure
+ * its color via pageGlowColor (defaults to `color`) and thickness via
+ * pageGlowWidth.
+ *
  * Usage:
  *   import { AgentCursor } from './agent-cursor.js'
  *   const cursor = new AgentCursor({ onExecuteClick: el => el.click() })
@@ -107,6 +113,9 @@ const DEFAULTS = {
   scrollSettleTimeout: 1200,
   showCursorDot: true,
   showScrollIndicator: false,
+  showPageGlow: false,
+  pageGlowColor: null, // defaults to opts.color if not set
+  pageGlowWidth: 4,
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -118,11 +127,14 @@ export class AgentCursor {
   constructor(options = {}) {
     this.opts = { ...DEFAULTS, ...options };
     if (!this.opts.highlightColor) this.opts.highlightColor = this.opts.color;
+    if (!this.opts.pageGlowColor) this.opts.pageGlowColor = this.opts.color;
     this.queue = Promise.resolve();
     this.reduced = this.opts.respectReducedMotion &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this._highlights = new Map(); // element -> overlay box element
     this._repositionScheduled = false;
+    this._activeCount = 0; // how many queued steps are currently running (drives the page glow)
+    this._glowHideTimer = null;
     this._onWindowChange = () => this._scheduleReposition();
     window.addEventListener('scroll', this._onWindowChange, { passive: true, capture: true });
     window.addEventListener('resize', this._onWindowChange, { passive: true });
@@ -147,6 +159,53 @@ export class AgentCursor {
     `;
     document.body.appendChild(el);
     this.cursorEl = el;
+  }
+
+  /**
+   * Build the full-viewport glow border, lazily, the first time it's needed.
+   * A pulsing colored border around the whole page — the "the system is
+   * driving this, not you" tell. Gated behind opts.showPageGlow (off by
+   * default); shown automatically for as long as any queued step is running.
+   */
+  _buildGlowEl() {
+    if (!document.getElementById('agent-cursor-glow-style')) {
+      const style = document.createElement('style');
+      style.id = 'agent-cursor-glow-style';
+      style.textContent = '@keyframes agent-cursor-glow-pulse{0%,100%{opacity:.55}50%{opacity:1}}';
+      document.head.appendChild(style);
+    }
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position: fixed;
+      inset: 0;
+      border: ${this.opts.pageGlowWidth}px solid ${this.opts.pageGlowColor};
+      box-shadow: inset 0 0 ${this.opts.pageGlowWidth * 6}px ${this.opts.pageGlowColor};
+      pointer-events: none;
+      z-index: ${this.opts.zIndex - 2};
+      opacity: 0;
+      transition: opacity 250ms ease-out;
+    `;
+    document.body.appendChild(el);
+    this._glowEl = el;
+  }
+
+  _showPageGlow() {
+    if (!this.opts.showPageGlow) return;
+    if (!this._glowEl) this._buildGlowEl();
+    if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
+    this._glowEl.style.opacity = '1';
+    this._glowEl.style.animation = this.reduced ? 'none' : 'agent-cursor-glow-pulse 1.4s ease-in-out infinite';
+  }
+
+  /** Debounced so the glow stays lit continuously across back-to-back steps
+   * in the same run() instead of flickering off between each one. */
+  _hidePageGlowSoon() {
+    if (!this.opts.showPageGlow || !this._glowEl) return;
+    this._glowHideTimer = setTimeout(() => {
+      this._glowEl.style.opacity = '0';
+      this._glowEl.style.animation = 'none';
+      this._glowHideTimer = null;
+    }, 200);
   }
 
   _center(el) {
@@ -359,10 +418,19 @@ export class AgentCursor {
 
   /** Queue an arbitrary async step so animations never overlap. */
   _enqueue(fn) {
-    const run = () => fn().catch((err) => {
-      console.error('[AgentCursor] step failed:', err);
-      throw err;
-    });
+    const run = async () => {
+      this._activeCount++;
+      this._showPageGlow();
+      try {
+        return await fn();
+      } catch (err) {
+        console.error('[AgentCursor] step failed:', err);
+        throw err;
+      } finally {
+        this._activeCount--;
+        if (this._activeCount === 0) this._hidePageGlowSoon();
+      }
+    };
     this.queue = this.queue.then(run, run);
     return this.queue;
   }
@@ -604,6 +672,8 @@ export class AgentCursor {
   /** Remove the cursor element, all highlight boxes, and event listeners. */
   destroy() {
     this.cursorEl?.remove();
+    this._glowEl?.remove();
+    if (this._glowHideTimer) clearTimeout(this._glowHideTimer);
     this.clearHighlights();
     window.removeEventListener('scroll', this._onWindowChange, { capture: true });
     window.removeEventListener('resize', this._onWindowChange);

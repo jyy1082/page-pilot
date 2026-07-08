@@ -1,16 +1,16 @@
 # agent-cursor
 
-A dependency-free visualization layer for automated page operations.
+A dependency-free visualization layer for automated webpage operations.
 
-It does **not** decide what to click or type — that's your automation logic
-(your own selectors, or something like PageAgent's `PageController`). This
-library only animates a virtual cursor moving to a target, plays a click /
-input feedback effect, draws a highlight border around whatever was just
-touched, and lets your executor perform the real DOM action underneath.
+It does **not** decide what to click or type — that's your own automation
+logic (your own selectors, or whatever drives your automation). This library
+only animates a virtual cursor moving to a target, plays a click / input
+feedback effect, draws a highlight border around whatever was just touched,
+and lets your executor perform the real DOM action underneath.
 
-Built for the common case of adding a "the AI is doing this, and here's
-where" visual layer to an in-page AI/browser agent, without pulling in a UI
-framework or animation library.
+Built for the common case of adding a "here's what's happening, and where"
+visual layer on top of any automated webpage interaction, without pulling in
+a UI framework or animation library.
 
 ## Demo
 
@@ -83,12 +83,16 @@ await cursor.run([
 ])
 ```
 
-### Hooking up to a real executor (e.g. PageAgent's PageController)
+### Hooking up to your own executor
+
+If your automation already has its own way of clicking/typing (a custom DOM
+controller, a browser-extension bridge, whatever), just point the hooks at it
+instead of the default `el.click()` / native-setter input:
 
 ```js
 const cursor = new AgentCursor({
-  onExecuteClick: (el) => pageController.clickElement(indexOf(el)),
-  onExecuteInput: (el, text) => pageController.inputText(indexOf(el), text),
+  onExecuteClick: (el) => myController.clickElement(indexOf(el)),
+  onExecuteInput: (el, text) => myController.inputText(indexOf(el), text),
 })
 ```
 

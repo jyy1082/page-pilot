@@ -3,8 +3,9 @@
  * A dependency-free visualization layer for automated page operations.
  * It does NOT decide what to click — it only animates a virtual cursor to a
  * target, plays a click/input feedback effect, then lets your own executor
- * (PageAgent's PageController, your own selectors, whatever) perform the
- * real DOM action. Every operation is queued so animations never overlap.
+ * (your own selectors, your own controller, whatever drives the automation)
+ * perform the real DOM action. Every operation is queued so animations never
+ * overlap.
  *
  * Supported controls:
  *   - buttons/links          click(target)

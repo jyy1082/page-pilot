@@ -37,6 +37,10 @@
  * hideCursor()/showCursor() yourself if you're calling individual methods
  * instead of run().
  *
+ * scroll() only highlights the scrolled container by default (no separate
+ * indicator). Set showScrollIndicator: true to also show a small arrow badge
+ * at the bottom of the screen while a scroll animation is in progress.
+ *
  * Usage:
  *   import { AgentCursor } from './agent-cursor.js'
  *   const cursor = new AgentCursor({ onExecuteClick: el => el.click() })
@@ -73,6 +77,7 @@ const DEFAULTS = {
   },
   scrollSettleTimeout: 1200,
   showCursorDot: true,
+  showScrollIndicator: false,
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -373,14 +378,14 @@ export class AgentCursor {
       else targetTop = startTop + (options.amount ?? 0);
 
       const direction = targetTop >= startTop ? 'down' : 'up';
-      this._showScrollIndicator(direction);
+      if (this.opts.showScrollIndicator) this._showScrollIndicator(direction);
 
       const behavior = this.reduced ? 'auto' : 'smooth';
       if (container) container.scrollTo({ top: targetTop, behavior });
       else window.scrollTo({ top: targetTop, behavior });
 
       if (!this.reduced) await this._waitForScrollSettle(container || window);
-      this._hideScrollIndicator();
+      if (this.opts.showScrollIndicator) this._hideScrollIndicator();
       if (container) this._highlight(container);
       this.opts.onAfterStep?.(step);
     });

@@ -47,7 +47,9 @@
  * viewport for as long as any step is running — a "the system is driving
  * this, not you" tell for the person watching. Off by default. Configure
  * its color via pageGlowColor (defaults to `color`) and thickness via
- * pageGlowWidth.
+ * pageGlowWidth. Set pageGlowTarget to an element/selector to wrap the glow
+ * tightly around that container instead of the whole page — it stays
+ * aligned to it across scroll/resize.
  *
  * Usage:
  *   import { AgentCursor } from './agent-cursor.js'
@@ -134,6 +136,7 @@ const DEFAULTS = {
   showPageGlow: false,
   pageGlowColor: null, // defaults to opts.color if not set
   pageGlowWidth: 4,
+  pageGlowTarget: null, // element/selector to wrap instead of the full viewport
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -197,21 +200,57 @@ export class AgentCursor {
     const el = document.createElement('div');
     el.style.cssText = `
       position: fixed;
-      inset: 0;
       border: ${this.opts.pageGlowWidth}px solid ${this.opts.pageGlowColor};
       box-shadow: inset 0 0 ${this.opts.pageGlowWidth * 6}px ${this.opts.pageGlowColor};
       pointer-events: none;
+      box-sizing: border-box;
       z-index: ${this.opts.zIndex - 2};
       opacity: 0;
-      transition: opacity 250ms ease-out;
+      transition: opacity 250ms ease-out, left 150ms ease-out, top 150ms ease-out,
+                  width 150ms ease-out, height 150ms ease-out;
     `;
     document.body.appendChild(el);
     this._glowEl = el;
+    this._positionGlowEl();
+  }
+
+  /** Resolve opts.pageGlowTarget defensively — if it's set but doesn't match
+   * anything (e.g. removed from the DOM), fall back to the full viewport
+   * rather than throwing and breaking whatever step triggered this. */
+  _resolveGlowTarget() {
+    if (!this.opts.pageGlowTarget) return null;
+    try {
+      return this._resolve(this.opts.pageGlowTarget);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Size/position the glow box: full viewport by default, or wrapped
+   * tightly around opts.pageGlowTarget's current rect if one is set. */
+  _positionGlowEl() {
+    if (!this._glowEl) return;
+    const targetEl = this._resolveGlowTarget();
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      this._glowEl.style.inset = 'auto';
+      this._glowEl.style.left = rect.left + 'px';
+      this._glowEl.style.top = rect.top + 'px';
+      this._glowEl.style.width = rect.width + 'px';
+      this._glowEl.style.height = rect.height + 'px';
+    } else {
+      this._glowEl.style.inset = '0';
+      this._glowEl.style.left = '';
+      this._glowEl.style.top = '';
+      this._glowEl.style.width = '';
+      this._glowEl.style.height = '';
+    }
   }
 
   _showPageGlow() {
     if (!this.opts.showPageGlow) return;
     if (!this._glowEl) this._buildGlowEl();
+    else this._positionGlowEl(); // target may have moved/resized since it was last shown
     if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
     this._glowEl.style.opacity = '1';
     this._glowEl.style.animation = this.reduced ? 'none' : 'agent-cursor-glow-pulse 1.4s ease-in-out infinite';
@@ -321,9 +360,10 @@ export class AgentCursor {
     for (const el of Array.from(this._highlights.keys())) this._removeHighlightBox(el);
   }
 
-  /** Keep persistent highlight boxes aligned with their elements on scroll/resize. */
+  /** Keep persistent highlight boxes — and a container-targeted page glow — aligned with their elements on scroll/resize. */
   _scheduleReposition() {
-    if (this._repositionScheduled || this._highlights.size === 0) return;
+    const glowNeedsTracking = this.opts.pageGlowTarget && this._glowEl && this._glowEl.style.opacity !== '0';
+    if (this._repositionScheduled || (this._highlights.size === 0 && !glowNeedsTracking)) return;
     this._repositionScheduled = true;
     requestAnimationFrame(() => {
       for (const [el, box] of this._highlights) {
@@ -342,6 +382,7 @@ export class AgentCursor {
         box.style.height = (rect.height + 6) + 'px';
         box.style.opacity = '1';
       }
+      if (glowNeedsTracking) this._positionGlowEl();
       this._repositionScheduled = false;
     });
   }

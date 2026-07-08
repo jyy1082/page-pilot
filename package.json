@@ -1,0 +1,29 @@
+{
+  "name": "agent-cursor",
+  "version": "0.1.0",
+  "description": "A dependency-free visual layer for automated page operations: an animated cursor, click ripples, and persistent highlight borders for AI/browser automation agents.",
+  "type": "module",
+  "main": "agent-cursor.js",
+  "module": "agent-cursor.js",
+  "exports": {
+    ".": "./agent-cursor.js"
+  },
+  "files": [
+    "agent-cursor.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "browser-automation",
+    "ai-agent",
+    "cursor-animation",
+    "dom-automation",
+    "gui-agent",
+    "visualization"
+  ],
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16"
+  }
+}

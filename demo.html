@@ -124,7 +124,7 @@
     const status = document.getElementById('status');
     const say = (t) => { status.textContent = t; };
 
-    const cursor = new AgentCursor();
+    const cursor = new AgentCursor({ showCursorDot: false });
 
     const planTrigger = document.getElementById('plan-trigger');
     const planMenu = document.getElementById('plan-menu');

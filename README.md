@@ -121,6 +121,7 @@ new AgentCursor({
   clickPause: 260,
   typeDelay: 45,
   respectReducedMotion: true,
+  showCursorDot: true,
   highlightEnabled: true,
   highlightColor: null,        // defaults to `color`
   highlightDuration: null,     // null = persists until cleared; number (ms) = auto-fade

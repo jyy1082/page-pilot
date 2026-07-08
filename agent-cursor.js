@@ -31,6 +31,9 @@
  * or set highlightDuration to a number (ms) to have it auto-fade instead.
  * Set highlightEnabled: false to turn highlighting off entirely.
  *
+ * Set showCursorDot: false to skip the moving cursor dot entirely and keep
+ * only the ripple/highlight feedback on each target.
+ *
  * Usage:
  *   import { AgentCursor } from './agent-cursor.js'
  *   const cursor = new AgentCursor({ onExecuteClick: el => el.click() })
@@ -66,6 +69,7 @@ const DEFAULTS = {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   },
   scrollSettleTimeout: 1200,
+  showCursorDot: true,
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -85,7 +89,7 @@ export class AgentCursor {
     this._onWindowChange = () => this._scheduleReposition();
     window.addEventListener('scroll', this._onWindowChange, { passive: true, capture: true });
     window.addEventListener('resize', this._onWindowChange, { passive: true });
-    this._buildCursorEl();
+    if (this.opts.showCursorDot) this._buildCursorEl();
   }
 
   _buildCursorEl() {
@@ -302,9 +306,11 @@ export class AgentCursor {
       return this._lastPos || { x: 0, y: 0 };
     }
     const { x, y } = this._center(el);
-    this.cursorEl.style.display = 'block';
-    this.cursorEl.style.left = x + 'px';
-    this.cursorEl.style.top = y + 'px';
+    if (this.cursorEl) {
+      this.cursorEl.style.display = 'block';
+      this.cursorEl.style.left = x + 'px';
+      this.cursorEl.style.top = y + 'px';
+    }
     this._lastPos = { x, y };
     if (!this.reduced) await this._wait(this.opts.moveDuration + 20);
     return { x, y };

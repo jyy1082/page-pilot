@@ -11,7 +11,7 @@
  *   - buttons/links          click(target)
  *   - text inputs/textareas  type(target, text)
  *   - native <select>        select(target, value | valueArray)
- *   - checkbox/radio         check(target, checked)
+ *   - checkbox/radio/switch  check(target, checked)
  *   - custom div/li dropdown chooseOption(trigger, option)
  *   - page/container scroll  scroll(target, { amount | to })
  *
@@ -471,16 +471,28 @@ export class AgentCursor {
   }
 
   /**
-   * Set a checkbox/radio to a specific checked state (only clicks if the
-   * current state differs, since clicking an already-checked radio is a no-op
-   * anyway but would be misleading to animate).
+   * Set a checkbox/radio (or a custom ARIA switch) to a specific checked
+   * state — only clicks if the current state differs, since clicking an
+   * already-checked radio/switch is a no-op anyway but would be misleading
+   * to animate.
+   *
+   * Works on:
+   *   - native <input type="checkbox"> / <input type="radio">, via .checked
+   *   - custom toggle-switch components with no real <input> underneath,
+   *     identified by role="switch" or an aria-checked attribute, via
+   *     aria-checked="true"/"false" (the common pattern for hand-built or
+   *     div-based Switch components)
    */
   check(target, checked = true, label) {
     return this._enqueue(async () => {
       const el = this._resolve(target);
       const step = { type: 'check', target: el, label, checked };
       this.opts.onBeforeStep?.(step);
-      if (el.checked !== checked) {
+
+      const isAriaSwitch = el.getAttribute('role') === 'switch' || el.hasAttribute('aria-checked');
+      const currentState = isAriaSwitch ? el.getAttribute('aria-checked') === 'true' : el.checked;
+
+      if (currentState !== checked) {
         await this._animatedClick(el);
       } else {
         await this._moveTo(el);

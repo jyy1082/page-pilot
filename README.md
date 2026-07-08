@@ -29,7 +29,7 @@ no build step needed, it's plain ES modules.
 - Typing animation with native-setter input (works through React/Vue
   controlled inputs)
 - Native `<select>` support, including multi-select
-- Checkbox/radio support that only clicks when the state actually needs to change
+- Checkbox/radio/switch support (including ARIA-based custom toggles) that only clicks when the state actually needs to change
 - Custom (div/li-based) dropdown menu support via `chooseOption`
 - Page and container scrolling, with a direction indicator and scroll-settle detection
 - Persistent highlight borders on every acted-on element (on by default,
@@ -101,7 +101,7 @@ const cursor = new AgentCursor({
 | `click(target, label?)` | Move to and click an element |
 | `type(target, text, label?)` | Move to, focus, and type into an input/textarea |
 | `select(target, value, label?)` | Set a native `<select>`'s value (array = multi-select) |
-| `check(target, checked, label?)` | Set a checkbox/radio to a specific checked state |
+| `check(target, checked, label?)` | Set a checkbox, radio, or ARIA switch (`role="switch"`/`aria-checked`) to a specific checked state |
 | `chooseOption(trigger, option, options?)` | Open a custom dropdown and click an option |
 | `scroll(target, options?)` | Scroll the window or a container (`{ amount }` or `{ to: 'top'\|'bottom' }`) |
 | `moveTo(target)` | Move the cursor without acting |

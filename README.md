@@ -91,6 +91,16 @@ await cursor.run([
 ])
 ```
 
+### Stopping mid-sequence
+
+```js
+const runPromise = cursor.run([ /* a long list of steps */ ])
+
+stopButton.addEventListener('click', () => cursor.stop())
+
+await runPromise // resolves quietly even if stop() cut it short
+```
+
 ### Hooking up to your own executor
 
 If your automation already has its own way of clicking/typing (a custom DOM
@@ -117,6 +127,7 @@ const cursor = new AgentCursor({
 | `moveTo(target)` | Move the cursor without acting |
 | `step(target, action, label?)` | Run custom logic while still getting the cursor animation |
 | `run(steps)` | Run an ordered array of steps of any of the above types, then automatically hide the cursor dot |
+| `stop()` | Immediately abort whatever's running and drop anything still queued — the instance stays usable right after, no reset needed |
 | `hideCursor()` | Hide the cursor dot (e.g. once a sequence of individual calls is done) |
 | `showCursor()` | Show the cursor dot again (also happens automatically on the next move/click/type/etc.) |
 | `clearHighlight(target)` | Remove one element's highlight box |

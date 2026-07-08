@@ -14,6 +14,7 @@
  *   - checkbox/radio/switch  check(target, checked)
  *   - custom div/li dropdown chooseOption(trigger, option)
  *   - page/container scroll  scroll(target, { amount | to })
+ *   - abort mid-sequence     stop()
  *
  * Known limits:
  *   - Native <select> renders its open option list via the OS/browser, not
@@ -60,8 +61,23 @@
  *   await cursor.scroll('#panel', { to: 'bottom' })  // scroll a container to its bottom
  *   cursor.clearHighlight('#name')                   // remove one persisted highlight
  *   cursor.clearHighlights()                         // remove all of them
+ *   cursor.stop()                                    // abort whatever is running right now
  *   cursor.destroy()
  */
+
+/**
+ * Thrown internally when stop() aborts a step in progress. run() catches
+ * this and resolves quietly instead of rejecting; if you call individual
+ * methods (click/type/etc.) directly instead of run(), you'll see this
+ * rejection yourself — check `err instanceof AgentCursorStopped` if you
+ * want to distinguish "the user hit stop" from an actual failure.
+ */
+export class AgentCursorStopped extends Error {
+  constructor() {
+    super('AgentCursor: aborted by stop()');
+    this.name = 'AgentCursorStopped';
+  }
+}
 
 /**
  * Set an <input>/<textarea>/<select>'s value via its native property setter
@@ -135,6 +151,8 @@ export class AgentCursor {
     this._repositionScheduled = false;
     this._activeCount = 0; // how many queued steps are currently running (drives the page glow)
     this._glowHideTimer = null;
+    this._generation = 0; // bumped by stop() to invalidate any steps already queued
+    this._pendingRejects = new Set(); // abort callbacks for in-flight waits, cleared/fired by stop()
     this._onWindowChange = () => this._scheduleReposition();
     window.addEventListener('scroll', this._onWindowChange, { passive: true, capture: true });
     window.addEventListener('resize', this._onWindowChange, { passive: true });
@@ -368,12 +386,15 @@ export class AgentCursor {
     this._scrollIndicatorEl = null;
   }
 
-  /** Poll scroll position until it stops changing, or a timeout is hit. */
+  /** Poll scroll position until it stops changing, or a timeout is hit. Abortable by stop(). */
   _waitForScrollSettle(scrollable) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       let lastTop = scrollable === window ? window.scrollY : scrollable.scrollTop;
       let stableFrames = 0;
       const start = performance.now();
+      let rafId;
+      const abort = () => { cancelAnimationFrame(rafId); reject(new AgentCursorStopped()); };
+      this._pendingRejects.add(abort);
       const tick = () => {
         const top = scrollable === window ? window.scrollY : scrollable.scrollTop;
         const elapsed = performance.now() - start;
@@ -381,12 +402,13 @@ export class AgentCursor {
         else stableFrames = 0;
         lastTop = top;
         if (stableFrames > 4 || elapsed > this.opts.scrollSettleTimeout) {
+          this._pendingRejects.delete(abort);
           resolve();
         } else {
-          requestAnimationFrame(tick);
+          rafId = requestAnimationFrame(tick);
         }
       };
-      requestAnimationFrame(tick);
+      rafId = requestAnimationFrame(tick);
     });
   }
 
@@ -412,19 +434,31 @@ export class AgentCursor {
     return { x, y };
   }
 
+  /** A setTimeout-based delay that stop() can cut short immediately. */
   _wait(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._pendingRejects.delete(abort);
+        resolve();
+      }, ms);
+      const abort = () => { clearTimeout(timer); reject(new AgentCursorStopped()); };
+      this._pendingRejects.add(abort);
+    });
   }
 
   /** Queue an arbitrary async step so animations never overlap. */
   _enqueue(fn) {
+    const myGen = this._generation;
     const run = async () => {
+      if (myGen !== this._generation) return; // stop() fired before this step got its turn
       this._activeCount++;
       this._showPageGlow();
       try {
         return await fn();
       } catch (err) {
-        console.error('[AgentCursor] step failed:', err);
+        if (!(err instanceof AgentCursorStopped)) {
+          console.error('[AgentCursor] step failed:', err);
+        }
         throw err;
       } finally {
         this._activeCount--;
@@ -644,19 +678,48 @@ export class AgentCursor {
 
   /** Run an ordered list of steps — see method docs above for each type's shape.
    * Automatically hides the cursor dot once every step finishes (call
-   * showCursor() before the next run if you don't want that). */
+   * showCursor() before the next run if you don't want that). If stop() is
+   * called mid-sequence, this resolves quietly (does not throw) rather than
+   * rejecting — check individual step methods directly if you need to know
+   * a sequence was interrupted rather than completed. */
   async run(steps) {
-    for (const s of steps) {
-      if (s.type === 'click') await this.click(s.target, s.label);
-      else if (s.type === 'type') await this.type(s.target, s.text, s.label);
-      else if (s.type === 'move') await this.moveTo(s.target);
-      else if (s.type === 'scroll') await this.scroll(s.target, s.options || {});
-      else if (s.type === 'select') await this.select(s.target, s.value, s.label);
-      else if (s.type === 'check') await this.check(s.target, s.checked, s.label);
-      else if (s.type === 'chooseOption') await this.chooseOption(s.target, s.option, s.options || {});
-      else if (s.type === 'custom') await this.step(s.target, s.action, s.label);
+    try {
+      for (const s of steps) {
+        if (s.type === 'click') await this.click(s.target, s.label);
+        else if (s.type === 'type') await this.type(s.target, s.text, s.label);
+        else if (s.type === 'move') await this.moveTo(s.target);
+        else if (s.type === 'scroll') await this.scroll(s.target, s.options || {});
+        else if (s.type === 'select') await this.select(s.target, s.value, s.label);
+        else if (s.type === 'check') await this.check(s.target, s.checked, s.label);
+        else if (s.type === 'chooseOption') await this.chooseOption(s.target, s.option, s.options || {});
+        else if (s.type === 'custom') await this.step(s.target, s.action, s.label);
+      }
+    } catch (err) {
+      if (err instanceof AgentCursorStopped) return; // intentionally stopped, not a failure
+      throw err;
     }
     this.hideCursor();
+  }
+
+  /**
+   * Immediately abort whatever is currently running (mid-wait, mid-typing,
+   * mid-scroll, anywhere) and drop everything still queued behind it. Safe
+   * to call at any time, including when nothing is running. The instance
+   * stays fully usable afterwards — the very next click()/type()/run() call
+   * starts a clean new sequence, no reset() needed.
+   */
+  stop() {
+    this._generation++; // invalidates every step already queued/in flight
+    for (const abort of this._pendingRejects) abort();
+    this._pendingRejects.clear();
+    this.queue = Promise.resolve();
+    this._activeCount = 0;
+    this.hideCursor();
+    if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
+    if (this._glowEl) {
+      this._glowEl.style.opacity = '0';
+      this._glowEl.style.animation = 'none';
+    }
   }
 
   /** Hide the cursor dot (e.g. once a whole sequence of actions is done). */

@@ -64,6 +64,7 @@
 
   <div class="actions">
     <button id="run-btn">Run full demo</button>
+    <button id="stop-btn" disabled>Stop</button>
     <button id="reset-btn">Reset</button>
   </div>
 
@@ -142,8 +143,12 @@
       });
     });
 
+    let wasStopped = false;
+
     async function runDemo() {
+      wasStopped = false;
       document.getElementById('run-btn').disabled = true;
+      document.getElementById('stop-btn').disabled = false;
       cursor.clearHighlights();
 
       await cursor.run([
@@ -154,14 +159,25 @@
         { type: 'scroll', target: '#scroll-box', options: { to: 'bottom' }, label: 'Scrolling activity list' },
         { type: 'click', target: '#f-submit', label: 'Clicking submit' },
       ]);
-      // run() hides the cursor dot automatically once every step above finishes.
+      // run() hides the cursor dot automatically once every step above finishes
+      // (or once stop() cuts it short).
 
-      say('Demo complete. Every touched field stays highlighted until reset.');
+      say(wasStopped
+        ? 'Stopped. Fields touched so far stay highlighted until reset.'
+        : 'Demo complete. Every touched field stays highlighted until reset.');
       document.getElementById('run-btn').disabled = false;
+      document.getElementById('stop-btn').disabled = true;
     }
 
     document.getElementById('run-btn').addEventListener('click', runDemo);
+    document.getElementById('stop-btn').addEventListener('click', () => {
+      wasStopped = true;
+      cursor.stop();
+    });
     document.getElementById('reset-btn').addEventListener('click', () => {
+      cursor.stop();
+      document.getElementById('run-btn').disabled = false;
+      document.getElementById('stop-btn').disabled = true;
       document.getElementById('f-name').value = '';
       document.getElementById('f-country').value = '';
       document.getElementById('f-agree').checked = false;

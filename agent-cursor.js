@@ -292,10 +292,20 @@ export class AgentCursor {
 
   async _moveTo(el) {
     await this._ensureVisible(el);
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      // The target is hidden (display:none, detached, or a zero-size ancestor)
+      // right now — most likely a menu/dropdown whose open state doesn't
+      // match what the caller expected. Moving to (0, 0) would be worse than
+      // doing nothing, so keep the cursor at its last known position.
+      console.warn('[AgentCursor] target has zero size (likely hidden) — cursor not moved:', el);
+      return this._lastPos || { x: 0, y: 0 };
+    }
     const { x, y } = this._center(el);
     this.cursorEl.style.display = 'block';
     this.cursorEl.style.left = x + 'px';
     this.cursorEl.style.top = y + 'px';
+    this._lastPos = { x, y };
     if (!this.reduced) await this._wait(this.opts.moveDuration + 20);
     return { x, y };
   }

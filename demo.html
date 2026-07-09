@@ -236,8 +236,8 @@
         { type: 'click', target: '#load-more-btn', label: 'Loading more activity' },
         { type: 'waitFor', target: '#loaded-item', options: { timeout: 3000, label: 'Waiting for it to finish loading' } },
         { type: 'click', target: '#loaded-item', label: 'Loaded item appeared' },
-        { type: 'dragTo', target: '#drag-chip', destination: '#drop-zone', label: 'Dragging the chip into the drop zone' },
         { type: 'scroll', target: '#scroll-box', options: { to: 'bottom' }, label: 'Scrolling activity list' },
+        { type: 'dragTo', target: '#drag-chip', destination: '#drop-zone', label: 'Dragging the chip into the drop zone' },
         { type: 'click', target: '#f-submit', label: 'Clicking submit' },
       ]);
       // run() hides the cursor dot automatically once every step above finishes

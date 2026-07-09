@@ -49,7 +49,8 @@
  * its color via pageGlowColor (defaults to `color`) and thickness via
  * pageGlowWidth. Set pageGlowTarget to an element/selector to wrap the glow
  * tightly around that container instead of the whole page — it stays
- * aligned to it across scroll/resize.
+ * aligned to it across scroll/resize. pageGlowRadius (default 0) rounds its
+ * corners, useful when wrapping a container that itself has rounded corners.
  *
  * Usage:
  *   import { AgentCursor } from './agent-cursor.js'
@@ -137,6 +138,7 @@ const DEFAULTS = {
   pageGlowColor: null, // defaults to opts.color if not set
   pageGlowWidth: 4,
   pageGlowTarget: null, // element/selector to wrap instead of the full viewport
+  pageGlowRadius: 0,
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -201,6 +203,7 @@ export class AgentCursor {
     el.style.cssText = `
       position: fixed;
       border: ${this.opts.pageGlowWidth}px solid ${this.opts.pageGlowColor};
+      border-radius: ${this.opts.pageGlowRadius}px;
       box-shadow: inset 0 0 ${this.opts.pageGlowWidth * 6}px ${this.opts.pageGlowColor};
       pointer-events: none;
       box-sizing: border-box;

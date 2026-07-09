@@ -160,6 +160,7 @@ new AgentCursor({
   pageGlowColor: null,
   pageGlowWidth: 4,
   pageGlowTarget: null,
+  pageGlowRadius: 0,
   highlightEnabled: true,
   highlightColor: null,        // defaults to `color`
   highlightDuration: null,     // null = persists until cleared; number (ms) = auto-fade

@@ -56,12 +56,14 @@
   #scroll-box p { font-size: 13px; margin: 6px 0; }
   #status { font-size: 13px; color: var(--text-muted); min-height: 18px; }
   .actions { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  #demo-card { padding: 20px; border-radius: 12px; }
 </style>
 </head>
 <body>
   <h1>agent-cursor demo</h1>
-  <p class="sub">Click "Run full demo" to watch the library drive every control type: typing, a native select, a custom dropdown, a checkbox, scrolling, and a final click. Watch the edge of the browser window too — it pulses while automation is running.</p>
+  <p class="sub">Click "Run full demo" to watch the library drive every control type: typing, a native select, a custom dropdown, a checkbox, scrolling, and a final click. Watch the border around the card below — it pulses while automation is running.</p>
 
+  <div id="demo-card">
   <div class="actions">
     <button id="run-btn">Run full demo</button>
     <button id="stop-btn" disabled>Stop</button>
@@ -116,6 +118,7 @@
   <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
     <button id="f-submit">Submit</button>
   </div>
+  </div>
 
   <p id="status">Idle. Highlights persist across steps until you press reset.</p>
 
@@ -127,6 +130,8 @@
 
     const cursor = new AgentCursor({
       showPageGlow: true,
+      pageGlowTarget: '#demo-card',
+      pageGlowRadius: 12,
       onBeforeStep: (step) => { if (step.label) say(step.label); },
     });
 

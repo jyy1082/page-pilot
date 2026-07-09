@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>iframe fixture</title>
+</head>
+<body>
+  <input id="iframe-input" type="text" />
+  <select id="iframe-select">
+    <option value="">--</option>
+    <option value="us">US</option>
+    <option value="jp">JP</option>
+  </select>
+  <input id="iframe-checkbox" type="checkbox" />
+  <button id="iframe-btn">Iframe button</button>
+  <div id="iframe-scroll-box" style="height:100px; overflow-y:auto;">
+    <div style="height:1000px;">tall content</div>
+  </div>
+  <script>
+    window.__iframeButtonClicked = false;
+    document.getElementById('iframe-btn').addEventListener('click', () => {
+      window.__iframeButtonClicked = true;
+    });
+  </script>
+</body>
+</html>

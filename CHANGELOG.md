@@ -5,6 +5,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.9.0] — Same-origin iframe support
+
+### Added
+- `_resolve()` (and every method built on it — `click`, `type`, `select`,
+  `check`, `chooseOption`, `hover`, `dragTo`, `moveTo`, `step`) now accepts
+  `{ selector, frame }` as a target, where `frame` is an iframe selector
+  (or an array of them for nested iframes), resolving the selector inside
+  that same-origin iframe's own document instead of the top page. `run()`
+  automatically wraps a recorded step's string targets this way whenever it
+  carries a `frame` field — the exact field
+  [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+  produces when it records interactions inside an iframe, so recorded
+  steps replay with no manual adjustment.
+- `waitFor()` also supports the `{ selector, frame }` shape for its target.
+- A new `_topLevelRect()` helper converts an iframe-contained element's
+  `getBoundingClientRect()` (relative to that iframe's own viewport) into
+  top-level-viewport coordinates, by walking up through `window.frameElement`
+  for however many iframes it's nested in. The cursor dot, click ripples,
+  and highlight boxes all use this now, so they land in the right place on
+  screen even when the target lives inside an iframe.
+- A real-browser test suite (`test/browser-test.mjs`, `npm test`) covering
+  click/type/select/check/waitFor inside a same-origin iframe, correct
+  coordinate translation, a full record → replay round trip using
+  page-pilot-recorder, and a clear error for a missing/wrong iframe selector.
+
+### Fixed
+- `_scheduleReposition()`'s "is this highlight's element still attached"
+  check used `document.body.contains(el)` — always false for an element
+  inside an iframe (it's never a descendant of the *top* document's body),
+  which would have silently dropped iframe-contained highlights on the next
+  scroll/resize. Now uses `el.isConnected`, which is correct regardless of
+  which document owns the element.
+
 ## [0.8.0] — Block real input during the page glow
 
 ### Added

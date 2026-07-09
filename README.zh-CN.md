@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.8.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.9.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -30,6 +30,7 @@
 - `waitFor()`：轮询等待异步加载的内容，而不是猜一个固定延时
 - 页面和容器滚动，带滚动稳定检测，可选方向指示
 - 可选的整页呼吸边框（或者用 `pageGlowTarget` 指定某个容器），只要有操作在跑就会亮起——清楚地告诉观看者"系统正在自己操作"。默认会屏蔽这个区域内的真实鼠标点击（`blockInteraction`，可以用 `pointerBlockAllowlist` 设置例外），还可以配一个状态提示文字（`pageGlowMessage`），跟边框同步出现、同步消失
+- 支持同源 iframe——用 `{ selector, frame }` 就能操作 iframe 里面的元素，光标/涟漪/高亮这些视觉效果会自动换算坐标
 - 每个被操作过的元素都会留下常驻高亮边框（默认开启，可以主动清除或者用 `highlightDuration` 设置自动淡出），滚动/窗口变化时会自动跟随重新定位
 - 所有操作都走队列，动画和操作之间不会互相打架
 - 遵循 `prefers-reduced-motion`（系统减少动态效果设置）
@@ -189,7 +190,29 @@ const cursor = new PagePilot({
 | `clearHighlights()` | 移除所有当前存在的高亮框 |
 | `destroy()` | 移除光标、所有高亮框，以及事件监听器 |
 
-`target` 可以是一个 `Element`，也可以是 CSS 选择器字符串。
+`target` 可以是一个 `Element`，也可以是 CSS 选择器字符串，或者是
+`{ selector, frame }` 这种形式，用来指定"同源 iframe 里面的某个元素"（详见下面的"iframe 支持"）——这正是
+[page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder) 录制 iframe 里的操作时自动生成的格式，录制出来的步骤不需要手动调整就能直接回放。
+
+## iframe 支持
+
+在**同源** iframe 里录制的步骤（或者你自己手写的步骤）可以带一个 `frame` 字段——一个 iframe 选择器，多层嵌套的话是数组——`run()` 会自动去正确的文档里解析这个元素：
+
+```js
+await cursor.run([
+  { type: 'click', target: '#confirm-btn', frame: '#payment-iframe' },
+])
+
+// 也可以直接调用方法，传 { selector, frame } 这种形式：
+await cursor.click({ selector: '#confirm-btn', frame: '#payment-iframe' })
+
+// 嵌套 iframe：从最外层到最内层
+await cursor.type({ selector: '#field', frame: ['#outer-iframe', '#inner-iframe'] }, 'hello')
+```
+
+光标圆点、点击涟漪、高亮框，都会正确换算 iframe 在页面上的实际位置——因为 `getBoundingClientRect()` 返回的坐标是相对于元素自己所在窗口的，不是相对于顶层页面，page-pilot 会先把 iframe 内部的相对坐标换算成顶层坐标，再去画这些视觉效果。
+
+**跨域的 iframe 完全没法操作**——读取或者操作跨域 iframe 内部的任何东西，都是浏览器自己拦下来的（任何浏览器自动化工具，不借助服务端配合，都进不去跨域 iframe），不是这个库特有的限制。
 
 ### 配置项
 
@@ -241,6 +264,15 @@ new PagePilot({
 - `pressKey()` 派发的是真实的 KeyboardEvent，任何监听器都能收到，但是——跟 `click()` 一样——它不会触发浏览器自带的默认按键行为（比如单单按 Enter 不会自动提交表单，除非页面自己的 JS 显式做了这件事）。
 - 一个完全用普通 `<div>` 拼出来、没有任何语义化标记的"表单"（没有 `role`/`aria-checked`，没有 `contenteditable`，也没有真实的 `<input>`）没有标准的状态可读可写——`click()` 对纯点击行为依然有效，但涉及状态的部分，需要用 `step()` 自己读写这个组件用的自定义属性或 class。
 - 这个库只移动一个**视觉上**的光标——它没法移动用户真实的、物理的鼠标指针（浏览器不会把这个能力开放给页面脚本），并且点击是作为合成事件（`isTrusted: false`）派发的。
+
+## 测试
+
+```bash
+npm install
+npm test
+```
+
+跑的是真实浏览器的回归测试（Playwright + Chromium，通过 `@sparticuz/chromium` 拿到——它把浏览器打包在了 npm 包本身里，具体原因见 [page-pilot-recorder 的 README](https://github.com/jyy1082/page-pilot-recorder#testing)）。这对同源 iframe 支持这部分尤其重要：每个 iframe 都有自己独立的 JavaScript realm、自己独立的 `Element`/`Document` 构造函数，iframe 视口和顶层页面之间的坐标换算也得放到真实浏览器的实际布局里才能验证对不对——模拟出来的 DOM 环境两边都复现不到位，测不出这类问题。
 
 ## 协议
 

@@ -1,6 +1,6 @@
 {
   "name": "page-pilot",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A dependency-free visual layer for automated page operations: an animated cursor, click ripples, and persistent highlight borders for AI/browser automation agents.",
   "type": "module",
   "main": "page-pilot.js",
@@ -11,8 +11,16 @@
   "files": [
     "page-pilot.js",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE"
   ],
+  "scripts": {
+    "test": "node test/browser-test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0",
+    "@sparticuz/chromium": "^149.0.0"
+  },
   "keywords": [
     "browser-automation",
     "ai-agent",

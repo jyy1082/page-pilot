@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.8.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.9.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -42,6 +42,7 @@ no build step needed, it's plain ES modules.
 - `waitFor()` polls for asynchronously-loaded content instead of guessing a fixed delay
 - Page and container scrolling, with scroll-settle detection and an optional direction indicator
 - Optional pulsing border around the whole viewport (or a specific container via `pageGlowTarget`) while any step is running — a clear "the system is driving this" signal for the person watching. Real mouse clicks inside it are blocked by default (`blockInteraction`, with an escape-hatch allowlist via `pointerBlockAllowlist`), and an optional status message (`pageGlowMessage`) appears and disappears together with it
+- Same-origin iframe support — target elements inside an iframe with `{ selector, frame }`, with automatic coordinate translation for the cursor/ripple/highlight visuals
 - Persistent highlight borders on every acted-on element (on by default,
   cleared explicitly or via `highlightDuration`), auto-repositioned on scroll/resize
 - Every operation is queued, so animations and actions never overlap
@@ -209,7 +210,42 @@ const cursor = new PagePilot({
 | `clearHighlights()` | Remove every active highlight box |
 | `destroy()` | Remove the cursor, all highlights, and event listeners |
 
-`target` accepts a `Element`, or a CSS selector string.
+`target` accepts a `Element`, a CSS selector string, or
+`{ selector, frame }` for an element inside a same-origin iframe (see
+"iframe support" below) — this is what
+[page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+produces automatically when it records interactions inside an iframe, so
+recorded steps replay with no manual adjustment.
+
+## iframe support
+
+Steps recorded inside a **same-origin** iframe (or written by hand) can
+carry a `frame` field — an iframe selector, or an array of them for nested
+iframes — and `run()` resolves the element in the right document
+automatically:
+
+```js
+await cursor.run([
+  { type: 'click', target: '#confirm-btn', frame: '#payment-iframe' },
+])
+
+// or call a method directly with the { selector, frame } shape:
+await cursor.click({ selector: '#confirm-btn', frame: '#payment-iframe' })
+
+// nested iframes: outermost to innermost
+await cursor.type({ selector: '#field', frame: ['#outer-iframe', '#inner-iframe'] }, 'hello')
+```
+
+The cursor dot, click ripples, and highlight boxes all correctly account
+for the iframe's own position on the page — `getBoundingClientRect()` is
+relative to an element's own window, not the top page, so page-pilot
+translates iframe-relative coordinates into top-level ones before drawing
+anything.
+
+**Cross-origin iframes can't be targeted at all** — reading or resolving
+anything inside one is blocked by the browser itself (the same reason no
+browser automation tool can reach into a cross-origin iframe without
+special server-side cooperation), not a limitation specific to this library.
 
 ### Options
 
@@ -289,6 +325,25 @@ framework's UI ends up as real DOM nodes at runtime.
 - This only moves a *visual* cursor — it cannot move the user's real, physical
   mouse pointer (browsers don't expose that capability to page scripts), and
   clicks are dispatched as synthetic (`isTrusted: false`) events.
+
+## Testing
+
+```bash
+npm install
+npm test
+```
+
+Runs a real-browser regression suite (Playwright + Chromium, obtained via
+`@sparticuz/chromium` since it ships the browser inside its own npm
+tarball — see
+[page-pilot-recorder's README](https://github.com/jyy1082/page-pilot-recorder#testing)
+for why that specific detour exists). This matters especially for the
+same-origin iframe support: each iframe has its own separate JavaScript
+realm with its own `Element`/`Document` constructors, and coordinate
+translation between an iframe's viewport and the top page's needs to be
+verified against a real browser's actual layout — a simulated DOM
+environment doesn't reproduce either of those closely enough to catch
+mistakes there.
 
 ## License
 

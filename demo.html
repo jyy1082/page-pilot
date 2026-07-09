@@ -61,7 +61,7 @@
 </head>
 <body>
   <h1>page-pilot demo</h1>
-  <p class="sub">Click "Run full demo" to watch the library drive every control type: typing, a native select, a custom dropdown, a checkbox, a hover tooltip, Escape-to-close, a drag-and-drop, waiting for async content, scrolling, and a final click. Watch the border around the card below — it pulses while automation is running.</p>
+  <p class="sub">Click "Run full demo" to watch the library drive every control type: typing, a native select, a custom dropdown, a checkbox, a hover tooltip, Escape-to-close, a drag-and-drop, waiting for async content, scrolling, and a final click. While it runs, the card is locked to real clicks (except Stop/Reset) and shows a status message; both disappear automatically when it's done.</p>
 
   <div id="demo-card">
   <div class="actions">
@@ -144,6 +144,8 @@
       showPageGlow: true,
       pageGlowTarget: '#demo-card',
       pageGlowRadius: 12,
+      pageGlowMessage: '正在自动化执行，请稍等……',
+      pointerBlockAllowlist: ['#stop-btn', '#reset-btn'],
       onBeforeStep: (step) => { if (step.label) say(step.label); },
     });
 

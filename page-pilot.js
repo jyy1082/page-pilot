@@ -64,6 +64,17 @@
  * aligned to it across scroll/resize. pageGlowRadius (default 0) rounds its
  * corners, useful when wrapping a container that itself has rounded corners.
  *
+ * Whenever the glow is showing, a transparent overlay also blocks real mouse
+ * input within that same area (blockInteraction, on by default) — so the
+ * person watching can't click/interact while automation is driving things,
+ * only while the glow is lit. Set blockInteraction: false to let real input
+ * through even while the glow is showing. If something inside the glow-
+ * covered area needs to stay clickable regardless (e.g. a Stop button that
+ * happens to sit inside it), list its selector(s) in pointerBlockAllowlist.
+ * Set pageGlowMessage to a string to show a small status label pinned to
+ * the top of the glow area (e.g. "Automation running — please wait…"); it's
+ * hidden by default, and disappears together with the glow.
+ *
  * Usage:
  *   import { PagePilot } from './page-pilot.js'
  *   const cursor = new PagePilot({ onExecuteClick: el => el.click() })
@@ -207,6 +218,9 @@ const DEFAULTS = {
   pageGlowWidth: 4,
   pageGlowTarget: null, // element/selector to wrap instead of the full viewport
   pageGlowRadius: 0,
+  blockInteraction: true, // block real pointer input inside the glow area while it's showing
+  pageGlowMessage: null, // small status label pinned to the top of the glow area; null = hidden
+  pointerBlockAllowlist: [], // selectors that stay clickable even while blocked (e.g. a Stop button)
   highlightEnabled: true,
   highlightColor: null, // defaults to opts.color if not set
   highlightDuration: null, // null/0 = persists until manually cleared; number (ms) = auto-fade
@@ -285,6 +299,76 @@ export class PagePilot {
     this._positionGlowEl();
   }
 
+  /**
+   * A transparent overlay matching the glow area that intercepts real mouse
+   * input while it's active — so the person watching can't click/interact
+   * inside the glowing area while automation is driving it. Gated behind
+   * opts.blockInteraction (on by default whenever showPageGlow is on).
+   *
+   * Elements matching opts.pointerBlockAllowlist (e.g. a Stop button that
+   * happens to sit inside the glow-covered container) stay clickable: on
+   * pointerdown we hide the overlay just long enough to hit-test what's
+   * underneath, and if it matches the allowlist we leave it hidden so the
+   * real click reaches the real element, restoring the block shortly after.
+   */
+  _buildBlockerEl() {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position: fixed;
+      background: transparent;
+      cursor: not-allowed;
+      border-radius: ${this.opts.pageGlowRadius}px;
+      pointer-events: none;
+      z-index: ${this.opts.zIndex - 2};
+      opacity: 0;
+      transition: opacity 250ms ease-out, left 150ms ease-out, top 150ms ease-out,
+                  width 150ms ease-out, height 150ms ease-out;
+    `;
+    el.addEventListener('pointerdown', (e) => {
+      if (!this.opts.pointerBlockAllowlist?.length) return;
+      el.style.pointerEvents = 'none';
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const allowed = this.opts.pointerBlockAllowlist.some(
+        (sel) => under && under.closest && under.closest(sel)
+      );
+      if (allowed) {
+        // Leave it click-through for this interaction (covers click/dblclick),
+        // then restore blocking shortly after.
+        clearTimeout(this._blockerAllowTimer);
+        this._blockerAllowTimer = setTimeout(() => {
+          if (this.opts.blockInteraction && this._glowEl?.style.opacity !== '0') {
+            el.style.pointerEvents = 'auto';
+          }
+        }, 250);
+      } else {
+        el.style.pointerEvents = 'auto';
+      }
+    });
+    document.body.appendChild(el);
+    this._blockerEl = el;
+  }
+
+  /** The small status label pinned to the top of the glow area, shown only if opts.pageGlowMessage is set. */
+  _buildMessageEl() {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position: fixed;
+      transform: translateX(-50%);
+      background: rgba(17, 17, 17, 0.85);
+      color: #fff;
+      font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 5px 12px;
+      border-radius: 999px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: ${this.opts.zIndex};
+      opacity: 0;
+      transition: opacity 200ms ease-out, left 150ms ease-out, top 150ms ease-out;
+    `;
+    document.body.appendChild(el);
+    this._messageEl = el;
+  }
+
   /** Resolve opts.pageGlowTarget defensively — if it's set but doesn't match
    * anything (e.g. removed from the DOM), fall back to the full viewport
    * rather than throwing and breaking whatever step triggered this. */
@@ -297,43 +381,73 @@ export class PagePilot {
     }
   }
 
-  /** Size/position the glow box: full viewport by default, or wrapped
-   * tightly around opts.pageGlowTarget's current rect if one is set. */
+  /** The effective area the glow/blocker/message all share: the target
+   * container's current rect, or the full viewport if none is set. */
+  _currentGlowRect() {
+    const targetEl = this._resolveGlowTarget();
+    if (targetEl) return targetEl.getBoundingClientRect();
+    return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  }
+
+  /** Size/position the glow border, the interaction blocker, and the status
+   * message together — full viewport by default, or wrapped tightly around
+   * opts.pageGlowTarget's current rect if one is set. */
   _positionGlowEl() {
     if (!this._glowEl) return;
-    const targetEl = this._resolveGlowTarget();
-    if (targetEl) {
-      const rect = targetEl.getBoundingClientRect();
-      this._glowEl.style.inset = 'auto';
-      this._glowEl.style.left = rect.left + 'px';
-      this._glowEl.style.top = rect.top + 'px';
-      this._glowEl.style.width = rect.width + 'px';
-      this._glowEl.style.height = rect.height + 'px';
-    } else {
-      this._glowEl.style.inset = '0';
-      this._glowEl.style.left = '';
-      this._glowEl.style.top = '';
-      this._glowEl.style.width = '';
-      this._glowEl.style.height = '';
+    const rect = this._currentGlowRect();
+
+    this._glowEl.style.left = rect.left + 'px';
+    this._glowEl.style.top = rect.top + 'px';
+    this._glowEl.style.width = rect.width + 'px';
+    this._glowEl.style.height = rect.height + 'px';
+
+    if (this._blockerEl) {
+      this._blockerEl.style.left = rect.left + 'px';
+      this._blockerEl.style.top = rect.top + 'px';
+      this._blockerEl.style.width = rect.width + 'px';
+      this._blockerEl.style.height = rect.height + 'px';
+    }
+    if (this._messageEl) {
+      this._messageEl.style.left = (rect.left + rect.width / 2) + 'px';
+      this._messageEl.style.top = (rect.top + 10) + 'px';
     }
   }
 
   _showPageGlow() {
     if (!this.opts.showPageGlow) return;
     if (!this._glowEl) this._buildGlowEl();
-    else this._positionGlowEl(); // target may have moved/resized since it was last shown
+    if (this.opts.blockInteraction && !this._blockerEl) this._buildBlockerEl();
+    if (this.opts.pageGlowMessage && !this._messageEl) this._buildMessageEl();
+    this._positionGlowEl(); // target may have moved/resized since it was last shown
+
     if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
+
     this._glowEl.style.opacity = '1';
     this._glowEl.style.animation = this.reduced ? 'none' : 'page-pilot-glow-pulse 1.4s ease-in-out infinite';
+
+    if (this._blockerEl && this.opts.blockInteraction) {
+      this._blockerEl.style.pointerEvents = 'auto';
+      this._blockerEl.style.opacity = '1';
+    }
+    if (this._messageEl && this.opts.pageGlowMessage) {
+      this._messageEl.textContent = this.opts.pageGlowMessage;
+      this._messageEl.style.opacity = '1';
+    }
   }
 
-  /** Debounced so the glow stays lit continuously across back-to-back steps
-   * in the same run() instead of flickering off between each one. */
+  /** Debounced so the glow (and blocker/message) stay lit continuously
+   * across back-to-back steps in the same run() instead of flickering off
+   * between each one. */
   _hidePageGlowSoon() {
     if (!this.opts.showPageGlow || !this._glowEl) return;
     this._glowHideTimer = setTimeout(() => {
       this._glowEl.style.opacity = '0';
       this._glowEl.style.animation = 'none';
+      if (this._blockerEl) {
+        this._blockerEl.style.pointerEvents = 'none';
+        this._blockerEl.style.opacity = '0';
+      }
+      if (this._messageEl) this._messageEl.style.opacity = '0';
       this._glowHideTimer = null;
     }, 200);
   }
@@ -433,7 +547,7 @@ export class PagePilot {
 
   /** Keep persistent highlight boxes — and a container-targeted page glow — aligned with their elements on scroll/resize. */
   _scheduleReposition() {
-    const glowNeedsTracking = this.opts.pageGlowTarget && this._glowEl && this._glowEl.style.opacity !== '0';
+    const glowNeedsTracking = this._glowEl && this._glowEl.style.opacity !== '0';
     if (this._repositionScheduled || (this._highlights.size === 0 && !glowNeedsTracking)) return;
     this._repositionScheduled = true;
     requestAnimationFrame(() => {
@@ -1020,10 +1134,16 @@ export class PagePilot {
     this.hideCursor();
     this._hideScrollIndicator(); // in case stop() landed mid-scroll
     if (this._glowHideTimer) { clearTimeout(this._glowHideTimer); this._glowHideTimer = null; }
+    if (this._blockerAllowTimer) { clearTimeout(this._blockerAllowTimer); this._blockerAllowTimer = null; }
     if (this._glowEl) {
       this._glowEl.style.opacity = '0';
       this._glowEl.style.animation = 'none';
     }
+    if (this._blockerEl) {
+      this._blockerEl.style.pointerEvents = 'none';
+      this._blockerEl.style.opacity = '0';
+    }
+    if (this._messageEl) this._messageEl.style.opacity = '0';
   }
 
   /** Hide the cursor dot (e.g. once a whole sequence of actions is done). */
@@ -1040,7 +1160,10 @@ export class PagePilot {
   destroy() {
     this.cursorEl?.remove();
     this._glowEl?.remove();
+    this._blockerEl?.remove();
+    this._messageEl?.remove();
     if (this._glowHideTimer) clearTimeout(this._glowHideTimer);
+    if (this._blockerAllowTimer) clearTimeout(this._blockerAllowTimer);
     this.clearHighlights();
     window.removeEventListener('scroll', this._onWindowChange, { capture: true });
     window.removeEventListener('resize', this._onWindowChange);

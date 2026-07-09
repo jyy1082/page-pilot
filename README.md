@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.7.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.8.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -41,7 +41,7 @@ no build step needed, it's plain ES modules.
 - Drag and drop for mouse-event-based sortable lists, sliders, and custom drag widgets
 - `waitFor()` polls for asynchronously-loaded content instead of guessing a fixed delay
 - Page and container scrolling, with scroll-settle detection and an optional direction indicator
-- Optional pulsing border around the whole viewport (or a specific container via `pageGlowTarget`) while any step is running — a clear "the system is driving this" signal for the person watching
+- Optional pulsing border around the whole viewport (or a specific container via `pageGlowTarget`) while any step is running — a clear "the system is driving this" signal for the person watching. Real mouse clicks inside it are blocked by default (`blockInteraction`, with an escape-hatch allowlist via `pointerBlockAllowlist`), and an optional status message (`pageGlowMessage`) appears and disappears together with it
 - Persistent highlight borders on every acted-on element (on by default,
   cleared explicitly or via `highlightDuration`), auto-repositioned on scroll/resize
 - Every operation is queued, so animations and actions never overlap
@@ -92,6 +92,44 @@ Wrap a specific container instead of the whole page:
 const cursor = new PagePilot({ showPageGlow: true, pageGlowTarget: '#chat-panel' })
 // The glow hugs #chat-panel's current bounding box instead of the viewport,
 // and stays aligned to it if the page scrolls or resizes.
+```
+
+By default, real mouse clicks inside the glow area are blocked while it's
+showing — so the person watching can't interfere with automation in
+progress — and it comes with an optional status message that appears and
+disappears together with the glow:
+
+```js
+const cursor = new PagePilot({
+  showPageGlow: true,
+  pageGlowTarget: '#demo-card',
+  pageGlowMessage: 'Automation running — please wait…',
+  // Keep the Stop button clickable even though it's inside the blocked area:
+  pointerBlockAllowlist: ['#stop-btn'],
+})
+
+// Or opt out of blocking entirely and just show the visual glow:
+const cursor2 = new PagePilot({ showPageGlow: true, blockInteraction: false })
+```
+
+While the glow is showing, real mouse input inside that area is blocked by
+default (`blockInteraction: true`) — so the person watching can't click/type
+into the page while automation is driving it, and it releases automatically
+the instant the glow fades:
+
+```js
+const cursor = new PagePilot({ showPageGlow: true, blockInteraction: false })
+// Real clicks/input still reach the page even while the glow is showing.
+```
+
+Add a small status label pinned to the top of the glow area:
+
+```js
+const cursor = new PagePilot({
+  showPageGlow: true,
+  pageGlowMessage: 'Automation running — please wait…',
+})
+// Shown only while a step is running, and disappears together with the glow.
 ```
 
 ### Batch steps
@@ -190,6 +228,11 @@ new PagePilot({
   pageGlowWidth: 4,
   pageGlowTarget: null,
   pageGlowRadius: 0,
+  blockInteraction: true,     // block real mouse clicks inside the glow area while it's showing
+  pointerBlockAllowlist: [],  // selectors that stay clickable even while blocked (e.g. a Stop button)
+  pageGlowMessage: null,      // small status label pinned to the top of the glow area; null = hidden
+  blockInteraction: true,
+  pageGlowMessage: null,
   highlightEnabled: true,
   highlightColor: null,        // defaults to `color`
   highlightDuration: null,     // null = persists until cleared; number (ms) = auto-fade

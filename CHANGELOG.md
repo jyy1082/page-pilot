@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.8.0] — Block real input during the page glow
+
+### Added
+- `blockInteraction` (default `true`) — while the page glow is showing, a
+  transparent overlay blocks real mouse clicks inside the glow area, so the
+  person watching can't interfere with automation in progress. Set to
+  `false` to keep the visual glow but allow real input through.
+- `pointerBlockAllowlist` — an array of selectors that stay clickable even
+  while blocked (e.g. a Stop button that happens to sit inside the
+  glow-covered container).
+- `pageGlowMessage` — an optional status label (e.g.
+  `"Automation running — please wait…"`) pinned to the top of the glow
+  area, shown and hidden in sync with the glow itself. Hidden by default.
+- Demo updated to enable the message and allowlist the Stop/Reset buttons.
+
+Verified with a 17-case test suite covering blocking, the allowlist
+passthrough, the message, and `stop()`/`destroy()` cleanup.
+
 ## [0.7.0] — Rename to page-pilot
 
 ### Changed

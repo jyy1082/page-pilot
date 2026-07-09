@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.7.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.8.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -29,7 +29,7 @@
 - 拖拽：支持基于鼠标事件实现的排序列表、滑块、自定义拖拽组件
 - `waitFor()`：轮询等待异步加载的内容，而不是猜一个固定延时
 - 页面和容器滚动，带滚动稳定检测，可选方向指示
-- 可选的整页呼吸边框（或者用 `pageGlowTarget` 指定某个容器），只要有操作在跑就会亮起——清楚地告诉观看者"系统正在自己操作"
+- 可选的整页呼吸边框（或者用 `pageGlowTarget` 指定某个容器），只要有操作在跑就会亮起——清楚地告诉观看者"系统正在自己操作"。默认会屏蔽这个区域内的真实鼠标点击（`blockInteraction`，可以用 `pointerBlockAllowlist` 设置例外），还可以配一个状态提示文字（`pageGlowMessage`），跟边框同步出现、同步消失
 - 每个被操作过的元素都会留下常驻高亮边框（默认开启，可以主动清除或者用 `highlightDuration` 设置自动淡出），滚动/窗口变化时会自动跟随重新定位
 - 所有操作都走队列，动画和操作之间不会互相打架
 - 遵循 `prefers-reduced-motion`（系统减少动态效果设置）
@@ -79,6 +79,39 @@ const cursor = new PagePilot({ showPageGlow: true })
 const cursor = new PagePilot({ showPageGlow: true, pageGlowTarget: '#chat-panel' })
 // 边框会紧贴 #chat-panel 当前的位置和大小，而不是包住整个视口，
 // 页面滚动或者容器大小变化时也会跟着自动对齐。
+```
+
+默认情况下,呼吸边框亮着的时候,这个区域内的**真实鼠标点击会被屏蔽**——这样正在观看的人就不会不小心干扰到正在进行的自动化操作。还可以配一个状态提示文字,跟边框同步出现、同步消失:
+
+```js
+const cursor = new PagePilot({
+  showPageGlow: true,
+  pageGlowTarget: '#demo-card',
+  pageGlowMessage: '正在自动化执行，请稍等……',
+  // 即使 Stop 按钮在被屏蔽的区域里面，也让它保持可以点击：
+  pointerBlockAllowlist: ['#stop-btn'],
+})
+
+// 或者完全不屏蔽点击，只保留视觉上的呼吸边框：
+const cursor2 = new PagePilot({ showPageGlow: true, blockInteraction: false })
+```
+
+呼吸边框亮着的时候，边框范围内的真实鼠标输入默认会被拦截（`blockInteraction: true`）——
+这样观看的人没法在自动化操作的时候手动点/输入干扰进去，边框一淡出就会立刻自动解除拦截：
+
+```js
+const cursor = new PagePilot({ showPageGlow: true, blockInteraction: false })
+// 即使呼吸边框亮着，真实的点击/输入依然能正常触达页面。
+```
+
+在呼吸边框顶部加一行小字提示：
+
+```js
+const cursor = new PagePilot({
+  showPageGlow: true,
+  pageGlowMessage: '正在自动化执行，请稍等……',
+})
+// 只在有操作跑的时候显示，跟呼吸边框一起自动消失。
 ```
 
 ### 批量执行步骤
@@ -175,6 +208,11 @@ new PagePilot({
   pageGlowWidth: 4,
   pageGlowTarget: null,
   pageGlowRadius: 0,
+  blockInteraction: true,     // 呼吸边框亮着的时候，屏蔽这个区域内的真实鼠标点击
+  pointerBlockAllowlist: [],  // 即使被屏蔽，也依然保持可点击的选择器列表（比如 Stop 按钮）
+  pageGlowMessage: null,      // 固定在呼吸边框顶部的状态提示文字；null = 不显示
+  blockInteraction: true,
+  pageGlowMessage: null,
   highlightEnabled: true,
   highlightColor: null,        // 默认跟 color 一致
   highlightDuration: null,     // null = 一直保持直到手动清除；数字（毫秒）= 自动淡出

@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.9.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.10.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -210,12 +210,28 @@ const cursor = new PagePilot({
 | `clearHighlights()` | Remove every active highlight box |
 | `destroy()` | Remove the cursor, all highlights, and event listeners |
 
-`target` accepts a `Element`, a CSS selector string, or
-`{ selector, frame }` for an element inside a same-origin iframe (see
-"iframe support" below) — this is what
-[page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
-produces automatically when it records interactions inside an iframe, so
-recorded steps replay with no manual adjustment.
+`target` accepts a `Element`, a CSS selector string, or an object combining
+`selector` with `frame` (for an element inside a same-origin iframe, see
+"iframe support" below) and/or `index` (to pick the Nth match of a selector
+that isn't unique on its own, see "Duplicate ids" below) — these are the
+shapes [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+produces automatically, so recorded steps replay with no manual adjustment.
+
+## Duplicate ids
+
+Real (especially older or messier) sites often have more than one element
+sharing the same `id` — invalid HTML, but browsers don't stop anyone from
+doing it. `{ selector, index }` picks the Nth match instead of assuming the
+first one is the right one:
+
+```js
+await cursor.click({ selector: '[id="row-action"]', index: 2 }) // the third one
+```
+
+This is what page-pilot-recorder generates automatically once it notices a
+recorded element's `id` doesn't uniquely identify it — you shouldn't
+usually need to write this by hand, but it's there if you're constructing
+steps yourself.
 
 ## iframe support
 
@@ -234,6 +250,10 @@ await cursor.click({ selector: '#confirm-btn', frame: '#payment-iframe' })
 
 // nested iframes: outermost to innermost
 await cursor.type({ selector: '#field', frame: ['#outer-iframe', '#inner-iframe'] }, 'hello')
+
+// index and frame combine when an element is both inside an iframe and
+// among a set of duplicate ids there:
+await cursor.click({ selector: '[id="dup"]', index: 1, frame: '#payment-iframe' })
 ```
 
 The cursor dot, click ripples, and highlight boxes all correctly account

@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.9.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.10.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -190,9 +190,17 @@ const cursor = new PagePilot({
 | `clearHighlights()` | 移除所有当前存在的高亮框 |
 | `destroy()` | 移除光标、所有高亮框，以及事件监听器 |
 
-`target` 可以是一个 `Element`，也可以是 CSS 选择器字符串，或者是
-`{ selector, frame }` 这种形式，用来指定"同源 iframe 里面的某个元素"（详见下面的"iframe 支持"）——这正是
-[page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder) 录制 iframe 里的操作时自动生成的格式，录制出来的步骤不需要手动调整就能直接回放。
+`target` 可以是一个 `Element`、CSS 选择器字符串，或者是一个对象，组合了 `selector` 和 `frame`（同源 iframe 里的元素，见下面的"iframe 支持"）和/或 `index`（区分一个本身不唯一的选择器匹配到的第几个，见下面的"重复 id"）——这些都是 [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder) 会自动生成的格式，录制出来的步骤不需要手动调整就能直接回放。
+
+## 重复 id
+
+真实网站（尤其是老旧或者比较"糙"的网站）经常出现同一个 `id` 被用在好几个元素上——不合规的 HTML，但浏览器不会阻止。`{ selector, index }` 用来指定"匹配到的第几个"，而不是默认用第一个：
+
+```js
+await cursor.click({ selector: '[id="row-action"]', index: 2 }) // 第三个（0 开始数）
+```
+
+这是 page-pilot-recorder 发现某个录制到的元素的 `id` 并不能唯一确定它时，自动生成的格式——通常你不需要自己手写这个，但如果你自己拼步骤，也可以这么用。
 
 ## iframe 支持
 
@@ -208,6 +216,9 @@ await cursor.click({ selector: '#confirm-btn', frame: '#payment-iframe' })
 
 // 嵌套 iframe：从最外层到最内层
 await cursor.type({ selector: '#field', frame: ['#outer-iframe', '#inner-iframe'] }, 'hello')
+
+// index 和 frame 可以组合使用：既在 iframe 里,又碰上重复 id
+await cursor.click({ selector: '[id="dup"]', index: 1, frame: '#payment-iframe' })
 ```
 
 光标圆点、点击涟漪、高亮框，都会正确换算 iframe 在页面上的实际位置——因为 `getBoundingClientRect()` 返回的坐标是相对于元素自己所在窗口的，不是相对于顶层页面，page-pilot 会先把 iframe 内部的相对坐标换算成顶层坐标，再去画这些视觉效果。

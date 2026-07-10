@@ -201,9 +201,56 @@ async function main() {
         replayedClick: iframe.contentWindow.__iframeButtonClicked,
       };
     });
-    check('recorded steps carry a frame marker', result.steps.some((s) => s.frame === '#test-iframe'));
+    check('recorded steps carry a frame marker', result.steps.some((s) => s.target?.frame === '#test-iframe'));
     check('replaying the recorded steps retypes the value inside the iframe', result.replayedValue === 'Recorded then replayed');
     check('replaying the recorded steps re-clicks the button inside the iframe', result.replayedClick === true);
+    await page.close();
+  }
+
+  console.log('=== click() resolves { selector, index } targets (duplicate-id disambiguation) ===');
+  {
+    const page = await freshPage();
+    const clickedText = await page.evaluate(async () => {
+      const buttons = document.querySelectorAll('#dup-btn');
+      let clicked = null;
+      buttons.forEach((b) => b.addEventListener('click', () => { clicked = b.textContent; }));
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      await cursor.click({ selector: '[id="dup-btn"]', index: 2 });
+      cursor.destroy();
+      return clicked;
+    });
+    check('clicks the exact element at the given index among duplicates', clickedText === 'Third');
+    await page.close();
+  }
+
+  console.log('=== { selector, index } throws a clear error when the index is out of range ===');
+  {
+    const page = await freshPage();
+    const message = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      try {
+        await cursor.click({ selector: '[id="dup-btn"]', index: 99 });
+        return null;
+      } catch (e) {
+        return e.message;
+      } finally {
+        cursor.destroy();
+      }
+    });
+    check('error mentions the index and how many matches were found', typeof message === 'string' && message.includes('index 99') && message.includes('found 3'));
+    await page.close();
+  }
+
+  console.log('=== { selector, index } combined with frame resolves inside an iframe ===');
+  {
+    const page = await freshPage();
+    const value = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      await cursor.type({ selector: '#iframe-input', index: 0, frame: '#test-iframe' }, 'combined');
+      cursor.destroy();
+      return document.getElementById('test-iframe').contentDocument.getElementById('iframe-input').value;
+    });
+    check('index + frame together resolve correctly', value === 'combined');
     await page.close();
   }
 

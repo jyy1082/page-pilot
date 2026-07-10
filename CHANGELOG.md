@@ -5,6 +5,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.10.0] — Duplicate-id target resolution
+
+### Added
+- `_resolve()` now also supports `{ selector, index }` — picks the Nth
+  element matching a selector that isn't unique on its own, combinable with
+  `frame` for an element that's both inside a duplicate-id situation and a
+  same-origin iframe. This is what
+  [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+  0.4.0+ produces for elements sharing a duplicate `id` attribute (invalid
+  HTML, but common on real, messier sites) instead of falling back to a
+  fragile structural path — recorded steps for such elements replay with no
+  manual adjustment.
+- `run()`'s frame-wrapping now also merges a step-level `frame` into an
+  existing target object (one that already has `index` set but no `frame`
+  of its own) instead of only wrapping plain strings.
+- 3 new real-browser tests: resolving a `{ selector, index }` target
+  correctly, a clear error when the index is out of range, and `index` +
+  `frame` combined.
+
 ## [0.9.0] — Same-origin iframe support
 
 ### Added

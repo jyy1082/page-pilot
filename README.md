@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.11.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.12.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -221,9 +221,11 @@ const cursor = new PagePilot({
 
 `target` accepts a `Element`, a CSS selector string, or an object combining
 `selector` with `frame` (for an element inside a same-origin iframe, see
-"iframe support" below) and/or `index` (to pick the Nth match of a selector
-that isn't unique on its own, see "Duplicate ids" below) — these are the
-shapes [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+"iframe support" below), `index` (to pick the Nth match of a selector
+that isn't unique on its own, see "Duplicate ids" below), and/or `text`
+(to match a button/link by its visible text content, see "Matching by
+text" below) — these are the shapes
+[page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
 produces automatically, so recorded steps replay with no manual adjustment.
 
 ## Duplicate ids
@@ -241,6 +243,24 @@ This is what page-pilot-recorder generates automatically once it notices a
 recorded element's `id` doesn't uniquely identify it — you shouldn't
 usually need to write this by hand, but it's there if you're constructing
 steps yourself.
+
+## Matching by text
+
+Native CSS has no "match by visible text" selector, so `{ selector, text }`
+fills that gap for buttons and links — often the most human-recognizable
+and redesign-resistant identifier they have, especially when there's no
+id/aria-label/data attribute at all:
+
+```js
+await cursor.click({ selector: 'button', text: 'Submit' })
+
+// several elements sharing the exact same text combine with index, same as duplicate ids:
+await cursor.click({ selector: 'button', text: 'Delete', index: 2 }) // the third "Delete" button
+```
+
+This is what page-pilot-recorder generates automatically for a button/link
+it can't otherwise identify. `text` and `index` both combine freely with
+`frame` too.
 
 ## iframe support
 

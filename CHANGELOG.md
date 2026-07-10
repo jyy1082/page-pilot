@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.12.0] — Text-based target resolution
+
+### Added
+- `_resolve()` now also supports `{ selector, text }` — matches an element
+  by its visible (trimmed) text content, since native CSS has no "match by
+  text" selector. Combines freely with `index` (for several elements
+  sharing identical text) and `frame`. This is what
+  [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder)
+  0.5.0+ produces for a button/link it can't otherwise identify by
+  id/aria-label/data attribute — often the most human-recognizable
+  identifier a button has.
+- 4 new real-browser tests: unique text matching, duplicate-text
+  disambiguation via `index`, a clear error when no element has the given
+  text, and `text` + `frame` combined inside an iframe.
+
 ## [0.11.0] — waitFor(state: 'gone')
 
 ### Added

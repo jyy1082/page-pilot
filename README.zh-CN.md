@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.11.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.12.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -197,7 +197,7 @@ const cursor = new PagePilot({
 | `clearHighlights()` | 移除所有当前存在的高亮框 |
 | `destroy()` | 移除光标、所有高亮框，以及事件监听器 |
 
-`target` 可以是一个 `Element`、CSS 选择器字符串，或者是一个对象，组合了 `selector` 和 `frame`（同源 iframe 里的元素，见下面的"iframe 支持"）和/或 `index`（区分一个本身不唯一的选择器匹配到的第几个，见下面的"重复 id"）——这些都是 [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder) 会自动生成的格式，录制出来的步骤不需要手动调整就能直接回放。
+`target` 可以是一个 `Element`、CSS 选择器字符串，或者是一个对象，组合了 `selector` 和 `frame`（同源 iframe 里的元素，见下面的"iframe 支持"）、`index`（区分一个本身不唯一的选择器匹配到的第几个，见下面的"重复 id"）、和/或 `text`（按钮/链接按可见文字匹配，见下面的"按文字匹配"）——这些都是 [page-pilot-recorder](https://github.com/jyy1082/page-pilot-recorder) 会自动生成的格式，录制出来的步骤不需要手动调整就能直接回放。
 
 ## 重复 id
 
@@ -208,6 +208,19 @@ await cursor.click({ selector: '[id="row-action"]', index: 2 }) // 第三个（0
 ```
 
 这是 page-pilot-recorder 发现某个录制到的元素的 `id` 并不能唯一确定它时，自动生成的格式——通常你不需要自己手写这个，但如果你自己拼步骤，也可以这么用。
+
+## 按文字匹配
+
+原生 CSS 没有"按可见文字内容匹配"这种选择器，`{ selector, text }` 就是为按钮和链接补上这个能力——这往往是它们最容易被人认出来、也最不容易在改版中被换掉的标识，尤其是在没有 id/aria-label/data 属性的情况下：
+
+```js
+await cursor.click({ selector: 'button', text: '提交' })
+
+// 好几个元素文字完全一样的话，组合 index，跟重复 id 的处理方式一样：
+await cursor.click({ selector: 'button', text: '删除', index: 2 }) // 第三个"删除"按钮
+```
+
+这是 page-pilot-recorder 给一个实在没法用别的方式识别的按钮/链接自动生成的格式。`text` 和 `index` 也都能跟 `frame` 自由组合。
 
 ## iframe 支持
 

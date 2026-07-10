@@ -339,6 +339,79 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== click() resolves { selector, text } targets (button/link identified by visible text) ===');
+  {
+    const page = await freshPage();
+    const clicked = await page.evaluate(async () => {
+      let wasClicked = false;
+      const buttons = document.querySelectorAll('button');
+      buttons.forEach((b) => {
+        if (b.textContent.trim() === 'Text Only') b.addEventListener('click', () => { wasClicked = true; });
+      });
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      await cursor.click({ selector: 'button', text: 'Text Only' });
+      cursor.destroy();
+      return wasClicked;
+    });
+    check('clicks the button matching that exact text', clicked === true);
+    await page.close();
+  }
+
+  console.log('=== { selector, text, index } disambiguates buttons sharing identical text ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const buttons = Array.from(document.querySelectorAll('button')).filter((b) => b.textContent.trim() === 'Same Text');
+      let clickedIndex = null;
+      buttons.forEach((b, i) => b.addEventListener('click', () => { clickedIndex = i; }));
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      await cursor.click({ selector: 'button', text: 'Same Text', index: 1 });
+      cursor.destroy();
+      return clickedIndex;
+    });
+    check('clicks specifically the second of the two identically-labeled buttons', result === 1);
+    await page.close();
+  }
+
+  console.log('=== { selector, text } throws a clear error when no element has that text ===');
+  {
+    const page = await freshPage();
+    const message = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      try {
+        await cursor.click({ selector: 'button', text: 'Does Not Exist Anywhere' });
+        return null;
+      } catch (e) {
+        return e.message;
+      } finally {
+        cursor.destroy();
+      }
+    });
+    check('error mentions the missing text and the selector', typeof message === 'string' && message.includes('Does Not Exist Anywhere') && message.includes('button'));
+    await page.close();
+  }
+
+  console.log('=== { selector, text } combined with frame resolves inside an iframe ===');
+  {
+    const page = await freshPage();
+    const clicked = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      await cursor.click({ selector: '#iframe-btn', frame: '#test-iframe' }); // sanity: plain id+frame still works
+      const iframe = document.getElementById('test-iframe');
+      // Add a text-only button inside the iframe on the fly to test the combo.
+      const btn = iframe.contentDocument.createElement('button');
+      btn.textContent = 'Inner Text Button';
+      let wasClicked = false;
+      btn.addEventListener('click', () => { wasClicked = true; });
+      iframe.contentDocument.body.appendChild(btn);
+      await cursor.click({ selector: 'button', text: 'Inner Text Button', frame: '#test-iframe' });
+      cursor.destroy();
+      return wasClicked;
+    });
+    check('text + frame together resolve correctly inside the iframe', clicked === true);
+    await page.close();
+  }
+
   console.log('=== a bad frame selector produces a clear error, not a silent no-op ===');
   {
     const page = await freshPage();

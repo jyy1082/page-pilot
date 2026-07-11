@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.13.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.14.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -259,6 +259,16 @@ await cursor.waitForFrameReload('#payment-iframe')
 await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' })
 ```
 
+如果你压根不想手动加这一步等待——比如你在跑的是别人录制好的步骤，或者是通过 [page-pilot-toolkit](https://github.com/jyy1082/page-pilot-toolkit) 这类工具粘贴进来的步骤——把 `autoWaitForIframeReload` 设成 `true`。每次点击之后，它会短暂观察页面上**每一个**同源 iframe 有没有开始重新加载，不管是哪个 iframe、也不管触发它的点击是在 iframe 里面还是外面，如果发现有就自动等它加载完，再继续下一步：
+
+```js
+const cursor = new PagePilot({ autoWaitForIframeReload: true })
+await cursor.click('#refresh-iframe-btn')
+await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' }) // 不需要手动加等待
+```
+
+默认关闭，这样不会在你不知情的情况下悄悄改变已有的行为；如果什么都没有重新加载，也不会带来明显的延迟（`autoIframeReloadGrace`，默认 400ms，是它放弃观察、直接往下走之前愿意等的时长）。这是一个尽力而为的安全网，不是绝对保证——如果重新加载的时机晚于这个观察窗口，还是可能捕捉不到；如果你明确知道某一步一定需要等，还是用 `waitForFrameReload()` 显式写出来更可靠。
+
 **跨域的 iframe 完全没法操作**——读取或者操作跨域 iframe 内部的任何东西，都是浏览器自己拦下来的（任何浏览器自动化工具，不借助服务端配合，都进不去跨域 iframe），不是这个库特有的限制。
 
 ### 配置项
@@ -286,6 +296,9 @@ new PagePilot({
   highlightEnabled: true,
   highlightColor: null,        // 默认跟 color 一致
   highlightDuration: null,     // null = 一直保持直到手动清除；数字（毫秒）= 自动淡出
+  autoWaitForIframeReload: false, // 每次点击后，短暂观察有没有 iframe 开始重新加载，有的话就等它加载完
+  autoIframeReloadGrace: 400,  // 观察"是否开始重新加载"愿意等多久（毫秒）
+  autoIframeReloadMaxWait: 4000, // 检测到重新加载后，最多等它加载完多久（毫秒）
   scrollSettleTimeout: 1200,
   onExecuteClick: (el) => el.click(),
   onExecuteInput: (el, text) => { /* 原生 setter 输入，见源码 */ },

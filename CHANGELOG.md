@@ -5,6 +5,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.14.0] — Automatic iframe-reload detection
+
+### Added
+- `autoWaitForIframeReload` option (default `false`) — when on, every
+  `click()` (and anything built on the same internal click helper:
+  `check()`, `chooseOption()`) briefly watches every same-origin iframe on
+  the page for any of them starting to reload, regardless of which iframe
+  or whether the triggering click was inside or outside it, and waits for
+  it to finish before the next step runs. This is the fully automatic
+  counterpart to `waitForFrameReload()` — for situations where inserting
+  an explicit wait step isn't practical, most notably running someone
+  else's recorded steps or steps pasted into a tool like
+  [page-pilot-toolkit](https://github.com/jyy1082/page-pilot-toolkit),
+  where there's no opportunity to hand-edit the step sequence.
+  `autoIframeReloadGrace` (default 400ms) controls how long it watches for
+  a reload to start before assuming nothing changed and proceeding
+  immediately (so unrelated clicks pay no meaningful latency);
+  `autoIframeReloadMaxWait` (default 4000ms) bounds how long it waits for
+  a detected reload to actually finish. Off by default so existing
+  behavior never changes without opting in.
+- 4 new real-browser tests: the exact race resolved automatically with
+  zero manual wait steps (trigger both inside and outside the iframe),
+  confirmation it's opt-in (default behavior unchanged), and confirmation
+  it adds no meaningful delay when nothing actually reloads.
+
 ## [0.13.0] — waitForFrameReload()
 
 ### Added

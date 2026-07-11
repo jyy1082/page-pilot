@@ -500,6 +500,79 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== AUTOMATIC: autoWaitForIframeReload catches the race with NO manual wait step at all ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2, autoWaitForIframeReload: true });
+      // Trigger is INSIDE the iframe — no waitFor/waitForFrameReload step
+      // anywhere in this sequence at all. This is exactly the bookmarklet
+      // scenario: the person just clicks through the page normally.
+      await cursor.run([
+        { type: 'click', target: { selector: '#reload-btn', frame: '#test-iframe' } },
+        { type: 'click', target: { selector: '#new-content-btn', frame: '#test-iframe' } },
+      ]);
+      const clicked = document.getElementById('test-iframe').contentWindow.__newContentButtonClicked === true;
+      cursor.destroy();
+      return clicked;
+    });
+    check('the new content button gets clicked correctly with zero manual intervention', result === true);
+    await page.close();
+  }
+
+  console.log('=== AUTOMATIC: also catches it when the trigger click is OUTSIDE the iframe ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2, autoWaitForIframeReload: true });
+      await cursor.run([
+        { type: 'click', target: '#reload-iframe-from-outside' }, // plain top-level button
+        { type: 'click', target: { selector: '#new-content-btn', frame: '#test-iframe' } },
+      ]);
+      const clicked = document.getElementById('test-iframe').contentWindow.__newContentButtonClicked === true;
+      cursor.destroy();
+      return clicked;
+    });
+    check('works automatically even when the trigger is outside the iframe', result === true);
+    await page.close();
+  }
+
+  console.log('=== AUTOMATIC: is off by default (opt-in), so existing behavior is unchanged unless enabled ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2 }); // no autoWaitForIframeReload set
+      let clickError = null;
+      try {
+        await cursor.run([
+          { type: 'click', target: { selector: '#reload-btn', frame: '#test-iframe' } },
+          { type: 'click', target: { selector: '#new-content-btn', frame: '#test-iframe' } },
+        ]);
+      } catch (e) {
+        clickError = e.message;
+      }
+      cursor.destroy();
+      return clickError;
+    });
+    check('without opting in, the race still happens exactly as before (no surprise behavior change)', typeof result === 'string');
+    await page.close();
+  }
+
+  console.log('=== AUTOMATIC: adds no meaningful delay when nothing actually reloads ===');
+  {
+    const page = await freshPage();
+    const elapsedMs = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2, autoWaitForIframeReload: true });
+      const start = performance.now();
+      await cursor.click('#top-btn'); // an ordinary click, nothing reloads as a result
+      const elapsed = performance.now() - start;
+      cursor.destroy();
+      return elapsed;
+    });
+    check('a plain click that triggers no reload stays fast (well under the reload timeout)', elapsedMs < 1000);
+    await page.close();
+  }
+
   console.log('=== waitForFrameReload() times out with a clear message if the iframe never reloads ===');
   {
     const page = await freshPage();

@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.13.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.14.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -319,6 +319,28 @@ await cursor.waitForFrameReload('#payment-iframe')
 await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' })
 ```
 
+If you'd rather not add an explicit wait step at all — e.g. you're running
+someone else's recorded steps, or steps a person pasted in through a tool
+like [page-pilot-toolkit](https://github.com/jyy1082/page-pilot-toolkit) —
+set `autoWaitForIframeReload: true`. After every click, it briefly watches
+every same-origin iframe on the page for any of them starting to reload,
+regardless of which iframe or whether the click that triggered it was
+inside or outside it, and waits for it to finish before the next step:
+
+```js
+const cursor = new PagePilot({ autoWaitForIframeReload: true })
+await cursor.click('#refresh-iframe-btn')
+await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' }) // no explicit wait needed
+```
+
+It's off by default so existing behavior never changes underneath you
+without asking, and when nothing actually reloads it adds no meaningful
+delay (`autoIframeReloadGrace`, default 400ms, is how long it watches
+before giving up and proceeding immediately). This is a best-effort safety
+net, not a hard guarantee — a reload that starts later than the grace
+window won't be caught by it; use `waitForFrameReload()` explicitly for a
+step you know will always need it.
+
 **Cross-origin iframes can't be targeted at all** — reading or resolving
 anything inside one is blocked by the browser itself (the same reason no
 browser automation tool can reach into a cross-origin iframe without
@@ -349,6 +371,9 @@ new PagePilot({
   highlightEnabled: true,
   highlightColor: null,        // defaults to `color`
   highlightDuration: null,     // null = persists until cleared; number (ms) = auto-fade
+  autoWaitForIframeReload: false, // after each click, briefly watch for any iframe starting to reload and wait for it
+  autoIframeReloadGrace: 400,  // ms to watch for a reload starting
+  autoIframeReloadMaxWait: 4000, // ms to wait for a detected reload to finish
   scrollSettleTimeout: 1200,
   onExecuteClick: (el) => el.click(),
   onExecuteInput: (el, text) => { /* native-setter input, see source */ },

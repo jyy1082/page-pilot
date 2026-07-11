@@ -5,6 +5,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.13.0] — waitForFrameReload()
+
+### Added
+- `waitForFrameReload(frameSelector, options?)` — waits for a same-origin
+  iframe's own content to actually reload/navigate, by polling until its
+  `contentDocument` identity changes (and has finished loading), rather
+  than requiring you to know a specific old element to `waitFor(...,
+  { state: 'gone' })`. Directly addresses the race where a step
+  immediately following a click that triggers an iframe reload runs before
+  that reload has even started, hitting a button in the stale,
+  about-to-be-replaced content. Works identically whether the triggering
+  click happens inside the iframe or on the parent page (e.g. a "refresh"
+  button on the parent page, or a `<form target="iframe-name">`
+  submission) — only the iframe's own content needs to be what changes.
+  Added to `run()`'s step dispatcher as `{ type: 'waitForFrameReload',
+  target, options }`.
+- 4 new real-browser tests: a demonstration of the race without any wait
+  (proving it's real, not theoretical — the click genuinely fails to find
+  the new content), the fix resolving it via `run()`, the same fix working
+  when the trigger is outside the iframe, and a clear timeout error.
+
 ## [0.12.2]
 
 ### Documentation

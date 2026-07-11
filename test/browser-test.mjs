@@ -437,6 +437,87 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== NEW SCENARIO: without any wait, the next click can hit the STALE iframe button ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2 });
+      const iframe = document.getElementById('test-iframe');
+      const oldDoc = iframe.contentDocument;
+      await cursor.click({ selector: '#reload-btn', frame: '#test-iframe' }); // starts a 200ms reload
+      // Immediately try to click something in what SHOULD be the new
+      // content — no wait in between, reflecting "moved to the next step
+      // before the iframe finished refreshing".
+      const stillOldDoc = iframe.contentDocument === oldDoc;
+      let clickError = null;
+      try {
+        await cursor.click({ selector: '#new-content-btn', frame: '#test-iframe' });
+      } catch (e) {
+        clickError = e.message;
+      }
+      cursor.destroy();
+      return { stillOldDoc, clickError };
+    });
+    check('demonstrates the race: the iframe genuinely had not reloaded yet at that instant', result.stillOldDoc === true);
+    check('the immediate next click fails to find the new content (proves the race is real, not just theoretical)', typeof result.clickError === 'string');
+    await page.close();
+  }
+
+  console.log('=== FIX: waitForFrameReload() resolves the exact race, no need to know the old element at all ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2 });
+      let newBtnClicked = false;
+      await cursor.run([
+        { type: 'click', target: { selector: '#reload-btn', frame: '#test-iframe' } },
+        { type: 'waitForFrameReload', target: '#test-iframe', options: { timeout: 3000 } },
+        { type: 'click', target: { selector: '#new-content-btn', frame: '#test-iframe' } },
+      ]);
+      newBtnClicked = document.getElementById('test-iframe').contentWindow.__newContentButtonClicked === true;
+      cursor.destroy();
+      return newBtnClicked;
+    });
+    check('the new iframe content button gets clicked correctly after waiting for the reload', result === true);
+    await page.close();
+  }
+
+  console.log('=== waitForFrameReload() also works when the trigger click is OUTSIDE the iframe ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 2, clickPause: 2 });
+      await cursor.run([
+        { type: 'click', target: '#reload-iframe-from-outside' }, // plain top-level button, no frame
+        { type: 'waitForFrameReload', target: '#test-iframe', options: { timeout: 3000 } },
+        { type: 'click', target: { selector: '#new-content-btn', frame: '#test-iframe' } },
+      ]);
+      const clicked = document.getElementById('test-iframe').contentWindow.__newContentButtonClicked === true;
+      cursor.destroy();
+      return clicked;
+    });
+    check('works the same regardless of where the triggering click happened', result === true);
+    await page.close();
+  }
+
+  console.log('=== waitForFrameReload() times out with a clear message if the iframe never reloads ===');
+  {
+    const page = await freshPage();
+    const message = await page.evaluate(async () => {
+      const cursor = new window.PagePilot({ moveDuration: 4, clickPause: 4 });
+      try {
+        await cursor.waitForFrameReload('#test-iframe', { timeout: 200 }); // nothing triggers a reload here
+        return null;
+      } catch (e) {
+        return e.message;
+      } finally {
+        cursor.destroy();
+      }
+    });
+    check('error mentions the iframe selector and "reload"', typeof message === 'string' && message.includes('#test-iframe') && message.includes('reload'));
+    await page.close();
+  }
+
   console.log('=== REGRESSION CHECK: a button OUTSIDE the iframe reloading the iframe still works with waitFor ===');
   {
     const page = await freshPage();

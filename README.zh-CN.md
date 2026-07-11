@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.12.2** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.13.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -187,6 +187,7 @@ const cursor = new PagePilot({
 | `unhover(label?)` | 离开当前通过 `hover()` 悬停的元素 |
 | `dragTo(source, target, options?)` | 从一个来源拖到目标元素或者一个 `{x, y}` 坐标点 |
 | `waitFor(target, options?)` | 轮询直到某个选择器/条件匹配到可见元素（或者，配合 `{ state: 'gone' }`，等到它消失），而不是固定延时等待 |
+| `waitForFrameReload(frameSelector, options?)` | 等一个同源 iframe 自己的内容真的重新加载/跳转了（判断依据是它的文档对象身份变了）——不需要知道新内容长什么样 |
 | `moveTo(target)` | 只移动光标，不执行操作 |
 | `step(target, action, label?)` | 运行自定义逻辑，同时仍然获得光标动画效果 |
 | `run(steps)` | 按顺序执行一组步骤（以上任意类型），执行完自动隐藏光标 |
@@ -248,6 +249,14 @@ await cursor.click({ selector: '[id="dup"]', index: 1, frame: '#payment-iframe' 
 ```js
 await cursor.click({ selector: '#next-step-btn', frame: '#payment-iframe' })
 await cursor.waitFor({ selector: '#step-2-marker', frame: '#payment-iframe' })
+```
+
+这种写法需要你先知道新内容里有个什么元素可以拿来等。如果你不想这么麻烦——或者遇到的情况是"下一步跑得太快，iframe 甚至还没开始刷新，结果点到了旧内容里那个即将被替换掉的按钮"——`waitForFrameReload()` 直接等 iframe 自己的文档对象真的换了一份，完全不需要知道新内容长什么样：
+
+```js
+await cursor.click('#refresh-iframe-btn')   // 不管这个按钮在 iframe 里面还是在父页面上都一样
+await cursor.waitForFrameReload('#payment-iframe')
+await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' })
 ```
 
 **跨域的 iframe 完全没法操作**——读取或者操作跨域 iframe 内部的任何东西，都是浏览器自己拦下来的（任何浏览器自动化工具，不借助服务端配合，都进不去跨域 iframe），不是这个库特有的限制。

@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.12.2** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.13.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -209,6 +209,7 @@ const cursor = new PagePilot({
 | `unhover(label?)` | Leave whatever's currently hovered via `hover()` |
 | `dragTo(source, target, options?)` | Drag from a source to a target element or `{x, y}` point |
 | `waitFor(target, options?)` | Poll until a selector/predicate matches a visible element (or, with `{ state: 'gone' }`, until it disappears), instead of a fixed delay |
+| `waitForFrameReload(frameSelector, options?)` | Wait for a same-origin iframe's own content to reload/navigate (its document identity changes) — no need to know anything about the new content |
 | `moveTo(target)` | Move the cursor without acting |
 | `step(target, action, label?)` | Run custom logic while still getting the cursor animation |
 | `run(steps)` | Run an ordered array of steps of any of the above types, then automatically hide the cursor dot |
@@ -303,6 +304,19 @@ submission) — only the iframe's own content needs to be what's changing:
 ```js
 await cursor.click({ selector: '#next-step-btn', frame: '#payment-iframe' })
 await cursor.waitFor({ selector: '#step-2-marker', frame: '#payment-iframe' })
+```
+
+That approach needs you to know a specific element in the new content to
+wait for. If you'd rather not — or the exact race is "the next step ran
+before the iframe had even started reloading, so it hit a button in the
+stale, about-to-be-replaced content" — `waitForFrameReload()` waits for the
+iframe's own document identity to actually change instead, which needs no
+knowledge of what the new content looks like at all:
+
+```js
+await cursor.click('#refresh-iframe-btn')   // wherever this button lives — inside the iframe or on the parent page, either way
+await cursor.waitForFrameReload('#payment-iframe')
+await cursor.click({ selector: '#new-btn', frame: '#payment-iframe' })
 ```
 
 **Cross-origin iframes can't be targeted at all** — reading or resolving

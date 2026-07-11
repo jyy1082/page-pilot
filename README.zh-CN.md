@@ -2,7 +2,7 @@
 
 [English](./README.md) · **中文**
 
-**版本 0.16.1** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 0.17.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一个零依赖的"自动化网页操作可视化层"。
 
@@ -218,6 +218,24 @@ await cursor.click('#save-btn')
 
 下拉菜单（不管是用 `chooseOption()`，还是两次普通的 `click()`）配合这个检查完全没问题——菜单打开之后，菜单自己的选项就是它那个位置上最上面的东西，这正是这个检查要判断的条件。这也包括很多组件库常见的"点击外部关闭菜单"实现方式（打开菜单的同时，加一个透明的全屏检测层）：只要这个检测层的层级（z-index）比菜单本身低（不然真人也点不到菜单选项，这本来就是正确实现下拉菜单的前提），就永远不会被误判成"挡住了菜单选项的东西"。
 
+如果你不想报错、而是想自己处理这种被挡住的情况——把挡住的东西关掉，然后继续——可以提供 `onObstruction`。它会带着"挡住的元素"和"你原本想点的目标元素"被调用；返回 `true` 表示你已经处理好了（这次点击会重试一次，只有真的还被挡住才会报错），返回 `false` 或者什么都不返回，就还是走默认的报错行为：
+
+```js
+const cursor = new PagePilot({
+  verifyClickable: true,
+  onObstruction: async (blockingEl, targetEl) => {
+    const closeBtn = blockingEl.querySelector('.modal-close');
+    if (closeBtn) {
+      closeBtn.click(); // 用原生 DOM 调用——见下面的说明
+      return true;
+    }
+    return false; // 不认识这种情况，还是走默认报错
+  },
+})
+```
+
+**这个回调里要用原生 DOM 调用（`element.click()`），不要用 `cursor.click()`。** 这个回调是在发现"被挡住"的那次点击步骤执行**过程中**跑的——这次点击本身还在排队队列里、正等着这个回调跑完，如果回调里又反过来调用 `cursor` 自己的排队方法，会造成死锁（新排的任务得等当前这个先跑完，但当前这个又在等新任务跑完）。
+
 ## 重复 id
 
 真实网站（尤其是老旧或者比较"糙"的网站）经常出现同一个 `id` 被用在好几个元素上——不合规的 HTML，但浏览器不会阻止。`{ selector, index }` 用来指定"匹配到的第几个"，而不是默认用第一个：
@@ -318,6 +336,7 @@ new PagePilot({
   autoIframeReloadGrace: 400,  // 观察"是否开始重新加载"愿意等多久（毫秒）
   autoIframeReloadMaxWait: 4000, // 检测到重新加载后，最多等它加载完多久（毫秒）
   verifyClickable: false, // 点击前先确认目标元素真的是那个位置上最上面的东西
+  onObstruction: null, // async (blockingEl, targetEl) => boolean —— 自己处理被挡住的情况，而不是直接报错
   scrollSettleTimeout: 1200,
   onExecuteClick: (el) => { /* 派发 pointerdown/mousedown/pointerup/mouseup/click，见源码 */ },
   onExecuteInput: (el, text) => { /* 原生 setter 输入，见源码 */ },

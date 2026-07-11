@@ -2,7 +2,7 @@
 
 **English** · [中文](./README.zh-CN.md)
 
-**Version 0.16.1** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 0.17.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free visualization layer for automated webpage operations.
 
@@ -270,6 +270,34 @@ alongside the menu to detect outside clicks): as long as it sits behind
 the menu itself (lower z-index, which it needs to for the menu to be
 clickable at all), it's never mistaken for something obstructing the menu's own option.
 
+If you'd rather handle an obstruction yourself instead of erroring —
+dismissing whatever's covering the target and continuing — provide
+`onObstruction`. It's called with the blocking element and the element you
+were trying to click; return `true` if you dismissed it (the click is then
+retried once, and only errors if something is genuinely still in the way),
+or `false`/nothing to keep the default error behavior:
+
+```js
+const cursor = new PagePilot({
+  verifyClickable: true,
+  onObstruction: async (blockingEl, targetEl) => {
+    const closeBtn = blockingEl.querySelector('.modal-close');
+    if (closeBtn) {
+      closeBtn.click(); // plain DOM call — see the note below
+      return true;
+    }
+    return false; // don't recognize this one; fall back to the normal error
+  },
+})
+```
+
+**Use plain DOM calls in this callback (`element.click()`), not
+`cursor.click()`.** The callback runs in the middle of the queued click
+step that discovered the obstruction — calling back into `cursor`'s own
+queue from inside it (which is still waiting on this callback to finish)
+deadlocks, since the new queued call would wait for the current one to
+finish first.
+
 ## Duplicate ids
 
 Real (especially older or messier) sites often have more than one element
@@ -416,6 +444,7 @@ new PagePilot({
   autoIframeReloadGrace: 400,  // ms to watch for a reload starting
   autoIframeReloadMaxWait: 4000, // ms to wait for a detected reload to finish
   verifyClickable: false, // before clicking, confirm the target is actually the topmost element at its own position
+  onObstruction: null, // async (blockingEl, targetEl) => boolean — handle a blocked click yourself instead of erroring
   scrollSettleTimeout: 1200,
   onExecuteClick: (el) => { /* dispatches pointerdown/mousedown/pointerup/mouseup/click, see source */ },
   onExecuteInput: (el, text) => { /* native-setter input, see source */ },

@@ -107,6 +107,89 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== onObstruction callback: dismisses the modal via plain DOM click, click succeeds ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      window.showModalBackdrop();
+      let receivedBlocker = null, receivedTarget = null;
+      const cursor = new window.PagePilot({
+        moveDuration: 4, clickPause: 4, verifyClickable: true,
+        onObstruction: async (blocker, target) => {
+          receivedBlocker = blocker.id;
+          receivedTarget = target.id;
+          document.getElementById('modal-close-btn').click(); // plain DOM call, not cursor.click()
+          return true;
+        },
+      });
+      let errored = false;
+      try {
+        await cursor.click('#covered-btn');
+      } catch {
+        errored = true;
+      }
+      cursor.destroy();
+      return { errored, clicked: window.__coveredBtnClicked, receivedBlocker, receivedTarget };
+    });
+    check('callback receives the blocking element and the intended target', result.receivedBlocker === 'modal-backdrop' && result.receivedTarget === 'covered-btn');
+    check('no error once the callback dismisses the obstruction', result.errored === false);
+    check('the originally intended click still goes through afterward', result.clicked === true);
+    await page.close();
+  }
+
+  console.log('=== onObstruction callback: if it does not actually fix things, still falls back to the normal error ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      window.showModalBackdrop();
+      const cursor = new window.PagePilot({
+        moveDuration: 4, clickPause: 4, verifyClickable: true,
+        onObstruction: async () => true, // claims to have handled it, but didn't actually do anything
+      });
+      let message = null;
+      try {
+        await cursor.click('#covered-btn');
+      } catch (e) {
+        message = e.message;
+      } finally {
+        cursor.destroy();
+      }
+      return { message, clicked: window.__coveredBtnClicked };
+    });
+    check('still throws the same clear error when the obstruction is genuinely still there', typeof result.message === 'string' && result.message.includes('covered'));
+    check('the covered button was still not actually clicked', result.clicked === false);
+    await page.close();
+  }
+
+  console.log('=== onObstruction callback: returning false also falls back to the normal error, without even re-checking ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(async () => {
+      window.showModalBackdrop();
+      let callbackCalled = false;
+      const cursor = new window.PagePilot({
+        moveDuration: 4, clickPause: 4, verifyClickable: true,
+        onObstruction: async () => {
+          callbackCalled = true;
+          document.getElementById('modal-close-btn').click(); // even though this WOULD fix it
+          return false; // explicitly says "didn't handle it"
+        },
+      });
+      let message = null;
+      try {
+        await cursor.click('#covered-btn');
+      } catch (e) {
+        message = e.message;
+      } finally {
+        cursor.destroy();
+      }
+      return { message, callbackCalled };
+    });
+    check('the callback was invoked', result.callbackCalled === true);
+    check('returning false still throws, even though the modal was actually dismissed', typeof result.message === 'string' && result.message.includes('covered'));
+    await page.close();
+  }
+
   console.log('=== verifyClickable: true correctly allows the click once the modal is actually closed ===');
   {
     const page = await freshPage();

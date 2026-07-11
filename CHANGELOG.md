@@ -5,6 +5,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) — while
 in `0.x`, minor version bumps may include breaking changes.
 
+## [0.17.0] — onObstruction callback
+
+### Added
+- `onObstruction` option — called when `verifyClickable` finds something
+  blocking the target, with the blocking element and the intended target;
+  return `true` if you dismissed it yourself (the click is retried once,
+  only erroring if something is genuinely still in the way), or `false`/
+  nothing to keep the default error behavior. Lets you handle a modal/
+  overlay automatically (e.g. clicking its own close button) instead of
+  stopping, without changing the default (still errors if no callback is
+  provided, or if the callback doesn't actually resolve it).
+- 3 new real-browser tests: the callback dismissing the obstruction and
+  the click succeeding afterward (also confirming it receives the correct
+  blocking/target elements), the callback claiming success without
+  actually fixing anything still falling back to the same clear error, and
+  the callback explicitly returning `false` doing the same even when it
+  did dismiss the obstruction as a side effect.
+
+### Documentation
+- Noted that `onObstruction` must use plain DOM calls
+  (`element.click()`), not `cursor.click()` — the callback runs in the
+  middle of the queued step that discovered the obstruction, and calling
+  back into the same queue from inside it would deadlock.
+
 ## [0.16.1]
 
 ### Documentation

@@ -386,6 +386,41 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== REGRESSION: typing after Backspace mid-field is not silently lost ===');
+  {
+    const page = await freshPage();
+    await page.locator('#name-input').click();
+    await page.keyboard.type('Helo');
+    await page.keyboard.press('Backspace'); // deletes the 'o'
+    await page.keyboard.type('llo'); // -> field ends up as "Helllo"
+    await page.locator('#stop-btn').click();
+    const finalFieldValue = await page.locator('#name-input').inputValue();
+    const steps = await page.evaluate(() => window.__lastSteps);
+    const typeSteps = steps.filter((s) => s.type === 'type' && s.target === '#name-input');
+    const lastTypeStep = typeSteps[typeSteps.length - 1];
+    check('the real field ends up with the full corrected text', finalFieldValue === 'Helllo');
+    check('the recording captures that same final text, not just what was typed before the Backspace', lastTypeStep && lastTypeStep.text === 'Helllo');
+    await page.close();
+  }
+
+  console.log('=== REGRESSION: typing after Ctrl+A + Delete (select-all-and-retype) is not silently lost ===');
+  {
+    const page = await freshPage();
+    await page.locator('#name-input').click();
+    await page.keyboard.type('王');
+    await page.keyboard.press('Control+a');
+    await page.keyboard.press('Delete');
+    await page.keyboard.type('Wang');
+    await page.locator('#stop-btn').click();
+    const finalFieldValue = await page.locator('#name-input').inputValue();
+    const steps = await page.evaluate(() => window.__lastSteps);
+    const typeSteps = steps.filter((s) => s.type === 'type' && s.target === '#name-input');
+    const lastTypeStep = typeSteps[typeSteps.length - 1];
+    check('the real field ends up with "Wang", not "王"', finalFieldValue === 'Wang');
+    check('the recording\'s last captured value for this field is "Wang", not the discarded "王"', lastTypeStep && lastTypeStep.text === 'Wang');
+    await page.close();
+  }
+
   console.log('=== REGRESSION: multi-line textarea typing (Enter is a newline, not a shortcut) ===');
   {
     const page = await freshPage();

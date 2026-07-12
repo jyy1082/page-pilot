@@ -27,6 +27,16 @@
     <input id="wrapped-input" type="text" />
   </label>
 
+  <!-- duplicate id: a label[for] lookup would incorrectly find the FIRST
+       element's label (meant for the photo button) if the id-uniqueness
+       check didn't skip it — the actual target here is the second
+       duplicate, a real text field with its own placeholder as a
+       fallback hint -->
+  <label for="dup-field">相片拍摄:</label>
+  <button id="dup-field">拍照</button>
+  <label for="dup-field">Last Name:</label>
+  <input id="dup-field" type="text" placeholder="Enter last name" />
+
   <select id="country-select">
     <option value="">--</option>
     <option value="us">US</option>

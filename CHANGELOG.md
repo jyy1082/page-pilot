@@ -3,6 +3,40 @@
 All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1]
+
+### Fixed
+- **Recorder: typing after a non-character key (Backspace, Delete, an
+  arrow key, Ctrl+A, etc.) within the same focus session was silently
+  lost.** `_onKeyDown` correctly flushed whatever was typed *before* such
+  a key into its own step, but never re-established the typing buffer
+  afterward — so anything typed *after* it (until the next focus event)
+  had nowhere to go. This affected an extremely common editing pattern:
+  fixing a typo with Backspace and continuing to type, or selecting all
+  (Ctrl+A) and retyping a value, would both end up recording only the
+  pre-correction text, silently dropping the actual final value a person
+  typed. Found from a real report: a "王" typed, then corrected to "Wang"
+  by select-all-and-retype, was recorded as "王" — the correction never
+  made it into the step at all. Now restarts the typing buffer for the
+  same field right after such a key, so subsequent typing is captured
+  correctly. 2 new real-browser regression tests (Backspace mid-word, and
+  the exact Ctrl+A-and-retype scenario from the report).
+- **Skills: a duplicate `id` on the page could attach a completely
+  unrelated element's `<label for="...">` text as a parameter's suggested
+  name.** `suggestFieldName`'s label lookup used a plain
+  `document.querySelector('label[for="X"]')`, which always returns the
+  *first* element with a matching `for` value in DOM order — with no way
+  to tell whether that's actually the label meant for *this* specific
+  field, if the id isn't unique (duplicate ids happen a lot on real,
+  messier sites — the exact same reason page-pilot-recorder disambiguates
+  them by position for selectors already). Found from a real report where
+  a parameter's detected name and its actual value visibly didn't
+  correspond to each other. Now checks whether the id is actually unique
+  on the page before trusting the `for=` lookup at all, falling through to
+  the next safer hint (a wrapping `<label>`, `aria-label`, `placeholder`,
+  or `name` — none of which depend on id uniqueness) instead of risking a
+  mismatched label. 1 new real-browser regression test.
+
 ## [1.0.0] — Unified into one repository
 
 ### Changed

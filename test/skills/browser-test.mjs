@@ -88,6 +88,24 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== REGRESSION: duplicate id does not attach the wrong element\'s label ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(() => {
+      // Targets the SECOND element sharing id="dup-field" (the real text
+      // input) — a naive label[for="dup-field"] lookup would incorrectly
+      // return the FIRST element's label ("相片拍摄:", meant for the
+      // button), since duplicate ids can't be disambiguated by a plain
+      // querySelector. This is exactly the target shape
+      // page-pilot-recorder produces for duplicate ids.
+      const steps = [{ type: 'type', target: { selector: '[id="dup-field"]', index: 1 }, text: 'Wang' }];
+      return window.Skills.detectParameters(steps);
+    });
+    check('does NOT attach the mismatched label from the other duplicate-id element', result[0].suggestedName !== '相片拍摄:');
+    check('correctly falls through to a safer hint (this field\'s own placeholder) instead', result[0].suggestedName === 'Enter last name');
+    await page.close();
+  }
+
   console.log('=== detectParameters: select and check steps ===');
   {
     const page = await freshPage();

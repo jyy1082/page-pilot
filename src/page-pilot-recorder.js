@@ -741,6 +741,18 @@ export class PagePilotRecorder {
     if (Object.keys(modifiers).length) step.options = { modifiers };
     if (fragile) step.fragile = true;
     this._pushStep(step);
+
+    // _flushTyping() above already cleared the buffer for whatever was
+    // typed before this key. But a non-character key like Backspace,
+    // Delete, an arrow key, or Ctrl+A is very often immediately followed
+    // by more typing in the very same field — fixing a typo, replacing a
+    // selection, etc. Without restarting the buffer here, nothing typed
+    // after this key (until the next focus event) would have anywhere to
+    // go and would be silently dropped from the recording entirely,
+    // rather than being reflected in the field's final value.
+    if (el && el.nodeType === 1 && this._isFormField(el) && !this._isPasswordField(el)) {
+      this._beginTypingBuffer(el);
+    }
   }
 
   _onScroll(e) {

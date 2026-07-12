@@ -2,7 +2,7 @@
 
 **中文** · [English](./README.md)
 
-**版本 1.0.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 1.0.1** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一套不依赖任何第三方库、用于"可视化"浏览器自动化的工具集，分四层，全部放在这一个仓库里：
 

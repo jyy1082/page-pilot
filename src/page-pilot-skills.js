@@ -84,13 +84,29 @@ function suggestFieldName(el) {
   if (!el) return null;
 
   if (el.id) {
-    let label;
+    // A label[for="X"] lookup can't tell WHICH of several elements
+    // sharing id="X" it was actually meant for — document.querySelector
+    // always returns the first one in DOM order, regardless of which
+    // element `el` actually is. Duplicate ids happen a lot on real,
+    // messier sites (the same reason page-pilot-recorder disambiguates
+    // them by position for selectors); trusting this lookup in that case
+    // risks confidently attaching a completely unrelated label to this
+    // field. Only trust it when the id is actually unique.
+    let matches;
     try {
-      label = document.querySelector(`label[for="${escapeAttrValue(el.id)}"]`);
+      matches = document.querySelectorAll(`[id="${escapeAttrValue(el.id)}"]`);
     } catch {
-      label = null;
+      matches = [];
     }
-    if (label && label.textContent.trim()) return label.textContent.trim();
+    if (matches.length === 1) {
+      let label;
+      try {
+        label = document.querySelector(`label[for="${escapeAttrValue(el.id)}"]`);
+      } catch {
+        label = null;
+      }
+      if (label && label.textContent.trim()) return label.textContent.trim();
+    }
   }
 
   const wrappingLabel = el.closest && el.closest('label');

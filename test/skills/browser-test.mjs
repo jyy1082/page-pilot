@@ -106,6 +106,24 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== REGRESSION: unique id, but multiple labels mistakenly share the same for= (real site markup bug) ===');
+  {
+    const page = await freshPage();
+    const result = await page.evaluate(() => {
+      // #realNameField's id IS unique on the page — this is a DIFFERENT
+      // bug than duplicate ids: the SITE's own markup has two separate
+      // <label for="realNameField">, one correct ("Last Name:") and one
+      // left over from a copy-pasted, never-updated block ("相片拍摄:").
+      // A plain querySelector would return whichever appears first in the
+      // document, regardless of which one is actually meant for this field.
+      const steps = [{ type: 'type', target: '#realNameField', text: 'Lily' }];
+      return window.Skills.detectParameters(steps);
+    });
+    check('does not attach the unrelated, earlier "相片拍摄:" label', result[0].suggestedName !== '相片拍摄:');
+    check('correctly picks the label structurally closest to the field ("Last Name:")', result[0].suggestedName === 'Last Name:');
+    await page.close();
+  }
+
   console.log('=== detectParameters: select and check steps ===');
   {
     const page = await freshPage();

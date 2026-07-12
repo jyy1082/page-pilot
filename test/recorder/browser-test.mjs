@@ -403,6 +403,25 @@ async function main() {
     await page.close();
   }
 
+  console.log('=== REGRESSION: repeated individual Backspace presses do not create a redundant type step per keypress ===');
+  {
+    const page = await freshPage();
+    await page.locator('#name-input').click();
+    await page.keyboard.type('sdf');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace'); // clears the field entirely, character by character
+    await page.keyboard.type('Lily');
+    await page.locator('#stop-btn').click();
+    const finalFieldValue = await page.locator('#name-input').inputValue();
+    const steps = await page.evaluate(() => window.__lastSteps);
+    const typeSteps = steps.filter((s) => s.type === 'type' && s.target === '#name-input');
+    check('the real field ends up with "Lily"', finalFieldValue === 'Lily');
+    check('only 2 clean type steps recorded (not one redundant step per Backspace press)', typeSteps.length === 2);
+    check('the final captured value is "Lily", not lost or mismatched', typeSteps[typeSteps.length - 1].text === 'Lily');
+    await page.close();
+  }
+
   console.log('=== REGRESSION: typing after Ctrl+A + Delete (select-all-and-retype) is not silently lost ===');
   {
     const page = await freshPage();

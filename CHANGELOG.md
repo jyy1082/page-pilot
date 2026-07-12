@@ -3,6 +3,49 @@
 All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.2]
+
+### Fixed
+- **Recorder: 1.0.1's fix for "typing after Backspace/Delete/Ctrl+A gets
+  lost" had its own timing bug, discovered from a real report** — it
+  restarted the typing buffer synchronously right after such a key, but
+  `keydown` fires *before* the browser applies that key's own default
+  action (actually deleting a character). Capturing the buffer's baseline
+  value at that moment grabbed the pre-deletion value, so pressing
+  Backspace several times in a row (a very ordinary way to clear a field)
+  recorded one redundant, intermediate `type` step *per keypress* instead
+  of one clean step for the final result. Deferring the restart with a
+  microtask or `setTimeout` didn't fix it either — with several such keys
+  fired in a fast burst, the deferred restarts could race against
+  subsequent typing and end up treating already-typed text as the
+  baseline, silently swallowing it entirely (confirmed by testing — this
+  is what happened in the report: several intermediate values got
+  recorded, and the real final text ended up missing). Now driven by the
+  browser's own `input` event instead of any guessed delay: the buffer is
+  only ever re-established the moment a value-changing event actually
+  fires and none is currently active, which is definitionally the correct
+  time — no race, and it also happens to record *fewer* steps than before
+  (a trailing Backspace with nothing typed after it no longer produces a
+  redundant step at all, since the preceding `pressKey` step alone already
+  reproduces the correct final value on replay). 1 new real-browser
+  regression test for the repeated-Backspace case specifically.
+- **Skills: a site's own markup having more than one `<label for="X">`
+  pointing at the same, otherwise‑uniquely‑identified field could attach
+  the wrong one.** 1.0.1 fixed the case of a duplicate *id* across several
+  elements, but this is a different bug: the target field's id is unique,
+  yet the site's markup (a real, found-in-the-wild copy-paste mistake —
+  an unrelated form row's label was never updated after being duplicated)
+  has two different labels both claiming that same `for=` value. A plain
+  `document.querySelector` always returns whichever one happens to appear
+  first in the document, regardless of which is actually meant for the
+  field — in the reported case, a "相片拍摄:" (photo capture) label
+  attached to a completely unrelated "Last Name" field. Now, when more
+  than one label shares a `for=`, the one structurally closest to the
+  target element (measured by nearest shared ancestor) is used instead of
+  just the first one found — correctly preferring a label sitting in the
+  same form row over an unrelated one elsewhere on the page. 1 new
+  real-browser regression test reproducing the exact real-site structure.
+
 ## [1.0.1]
 
 ### Fixed

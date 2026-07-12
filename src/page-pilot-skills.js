@@ -80,6 +80,29 @@ function resolveElement(target) {
  * placeholder, then the name attribute. Returns null if none are found
  * (the caller falls back to a generic "参数N" name).
  */
+/**
+ * How many ancestor levels up from `label` do we have to go before finding
+ * one that also contains `el`? Smaller = structurally closer. Used to pick
+ * the right one when a site's markup mistakenly has more than one
+ * label[for="same-id"] pointing at a single, otherwise-uniquely-identified
+ * element (a real copy-paste bug seen on a real site: two unrelated
+ * form-group blocks both referencing the same `for` value, one of them
+ * simply wrong) — a label physically sitting in the same form-row as the
+ * field is virtually always the one actually meant for it, while a
+ * same-`for` label somewhere else on the page shares only a very high,
+ * unrelated ancestor (like <body>).
+ */
+function ancestorDistanceTo(label, el) {
+  let ancestor = label.parentElement;
+  let depth = 0;
+  while (ancestor) {
+    if (ancestor.contains(el)) return depth;
+    ancestor = ancestor.parentElement;
+    depth++;
+  }
+  return Infinity;
+}
+
 function suggestFieldName(el) {
   if (!el) return null;
 
@@ -99,13 +122,26 @@ function suggestFieldName(el) {
       matches = [];
     }
     if (matches.length === 1) {
-      let label;
+      let labels;
       try {
-        label = document.querySelector(`label[for="${escapeAttrValue(el.id)}"]`);
+        labels = Array.from(document.querySelectorAll(`label[for="${escapeAttrValue(el.id)}"]`));
       } catch {
-        label = null;
+        labels = [];
       }
-      if (label && label.textContent.trim()) return label.textContent.trim();
+      // The id itself being unique doesn't guarantee only one label points
+      // at it — a site's own markup can (and in the wild, does) have more
+      // than one label sharing a for= value by mistake. Prefer whichever
+      // one is structurally closest to the actual field, rather than
+      // just the first one found anywhere in the document.
+      if (labels.length > 0) {
+        let best = labels[0];
+        let bestDistance = ancestorDistanceTo(best, el);
+        for (const candidate of labels.slice(1)) {
+          const d = ancestorDistanceTo(candidate, el);
+          if (d < bestDistance) { best = candidate; bestDistance = d; }
+        }
+        if (best.textContent.trim()) return best.textContent.trim();
+      }
     }
   }
 

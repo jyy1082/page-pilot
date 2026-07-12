@@ -37,6 +37,21 @@
   <label for="dup-field">Last Name:</label>
   <input id="dup-field" type="text" placeholder="Enter last name" />
 
+  <!-- a DIFFERENT real-world bug: the target's own id IS unique, but the
+       site's markup mistakenly has more than one label pointing at that
+       same for= value (a copy-paste bug — this exact structure was found
+       on a real site: an unrelated "相片拍摄:" form-row's label was never
+       updated after being copied, leaving it pointing at the Last Name
+       field below it) -->
+  <div class="form-group">
+    <label for="realNameField">相片拍摄:</label>
+    <button id="unrelated-photo-btn">拍照</button>
+  </div>
+  <div class="form-group">
+    <label for="realNameField">Last Name:</label>
+    <input id="realNameField" type="text" />
+  </div>
+
   <select id="country-select">
     <option value="">--</option>
     <option value="us">US</option>

@@ -267,6 +267,7 @@ export class PagePilotRecorder {
     this._onFocusIn = this._onFocusIn.bind(this);
     this._onFocusOut = this._onFocusOut.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
+    this._onInput = this._onInput.bind(this);
     this._onScroll = this._onScroll.bind(this);
     this._onMouseDown = this._onMouseDown.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
@@ -347,6 +348,7 @@ export class PagePilotRecorder {
     doc.addEventListener('focusin', this._onFocusIn, true);
     doc.addEventListener('focusout', this._onFocusOut, true);
     doc.addEventListener('keydown', this._onKeyDown, true);
+    doc.addEventListener('input', this._onInput, true);
     doc.addEventListener('scroll', this._onScroll, true);
     if (this.opts.recordDragTo) {
       doc.addEventListener('mousedown', this._onMouseDown, true);
@@ -361,6 +363,7 @@ export class PagePilotRecorder {
     doc.removeEventListener('focusin', this._onFocusIn, true);
     doc.removeEventListener('focusout', this._onFocusOut, true);
     doc.removeEventListener('keydown', this._onKeyDown, true);
+    doc.removeEventListener('input', this._onInput, true);
     doc.removeEventListener('scroll', this._onScroll, true);
     doc.removeEventListener('mousedown', this._onMouseDown, true);
     doc.removeEventListener('mouseup', this._onMouseUp, true);
@@ -690,6 +693,25 @@ export class PagePilotRecorder {
     if (this._typingBuffer && this._typingBuffer.el === e.target) this._flushTyping();
   }
 
+  /**
+   * Only acts when there's currently no active typing buffer for this
+   * field — meaning a prior keydown (a pressKey-worthy key, most
+   * commonly Backspace/Delete/Ctrl+A) just flushed it. Re-establishing
+   * the buffer here, rather than via a timer after that keydown, means
+   * startValue is captured at exactly the moment the browser has already
+   * applied this change — 'input' only ever fires after a field's value
+   * has actually changed, so there's no race to get right. If a buffer is
+   * already active (ordinary character-by-character typing, which never
+   * touches the buffer itself), this is a no-op — only a genuinely fresh
+   * start re-anchors startValue.
+   */
+  _onInput(e) {
+    if (!this.recording || this._typingBuffer) return;
+    const el = e.target;
+    if (!(el && el.nodeType === 1) || !this._isFormField(el) || this._isPasswordField(el)) return;
+    this._beginTypingBuffer(el);
+  }
+
   _flushTyping() {
     const buf = this._typingBuffer;
     this._typingBuffer = null;
@@ -743,16 +765,21 @@ export class PagePilotRecorder {
     this._pushStep(step);
 
     // _flushTyping() above already cleared the buffer for whatever was
-    // typed before this key. But a non-character key like Backspace,
-    // Delete, an arrow key, or Ctrl+A is very often immediately followed
-    // by more typing in the very same field — fixing a typo, replacing a
-    // selection, etc. Without restarting the buffer here, nothing typed
-    // after this key (until the next focus event) would have anywhere to
-    // go and would be silently dropped from the recording entirely,
-    // rather than being reflected in the field's final value.
-    if (el && el.nodeType === 1 && this._isFormField(el) && !this._isPasswordField(el)) {
-      this._beginTypingBuffer(el);
-    }
+    // typed before this key. If this key itself changes the field's value
+    // (Backspace, Delete, a paste via Ctrl+V, etc.), the 'input' event
+    // that fires right after picks up establishing a fresh buffer — see
+    // _onInput. That happens at exactly the right moment (once the
+    // browser has actually applied the change), which trying to guess via
+    // a timer here could not reliably do: 'keydown' fires before the
+    // browser's own default action (e.g. actually deleting a character)
+    // takes effect, and even deferring with a microtask or setTimeout
+    // either sees the pre-change value or, if several such keys fire in a
+    // fast burst (e.g. holding Backspace, or a script pressing it several
+    // times quickly), the deferred callbacks can race with subsequent
+    // typing and swallow it. A key that does NOT itself change the value
+    // (an arrow key, Ctrl+A) fires no 'input' event, but there's nothing
+    // to lose in that case either — nothing was typed yet for the buffer
+    // to have missed.
   }
 
   _onScroll(e) {

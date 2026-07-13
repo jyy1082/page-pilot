@@ -1,6 +1,6 @@
 # page-pilot
 
-**Version 1.0.5** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 1.0.6** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free toolkit for visualized browser automation, in four
 layers that live in this one repository:

@@ -263,6 +263,7 @@ export class PagePilotRecorder {
     this._lastStepTime = null; // performance.now() of the last recorded step, for wait-hint detection
 
     this._onClick = this._onClick.bind(this);
+    this._onLateClickCheck = this._onLateClickCheck.bind(this);
     this._onChange = this._onChange.bind(this);
     this._onFocusIn = this._onFocusIn.bind(this);
     this._onFocusOut = this._onFocusOut.bind(this);
@@ -316,6 +317,24 @@ export class PagePilotRecorder {
   /** Stop listening and return the recorded steps array. */
   stop() {
     if (!this.recording) return this.steps;
+    // Resolve any still-pending deferred type check (see _flushTyping)
+    // explicitly, as its own first step — not implicitly via the
+    // _flushTyping() call below, which only handles this.typingBuffer
+    // (a different, unrelated thing). This has to be a deliberate, later
+    // check: confirmed empirically with a real date picker that reading
+    // the field's value from a capture-phase click handler for the very
+    // same click that's ending the recording (typically a Stop button)
+    // can still be too early — the widget's own value-setting can land
+    // anywhere between that click's capture and bubble phases — while
+    // stop() itself is normally called from that button's own bubble
+    // handler, by which point real time has passed and the value is
+    // reliably settled.
+    if (this._pendingDeferredTypeCheck) {
+      clearTimeout(this._pendingDeferredTypeCheck.timer);
+      const resolve = this._pendingDeferredTypeCheck.resolve;
+      this._pendingDeferredTypeCheck = null;
+      resolve();
+    }
     this.recording = false;
     this._flushTyping();
     for (const doc of this._observedDocuments.keys()) this._detachListenersFrom(doc);
@@ -344,6 +363,12 @@ export class PagePilotRecorder {
     if (this._observedDocuments.has(doc)) return;
     this._observedDocuments.set(doc, framePath);
     doc.addEventListener('click', this._onClick, true);
+    // Bubble phase, deliberately separate from the capture-phase listener
+    // above: confirmed with a real date picker that its own value-setting
+    // can land somewhere between this same click's capture and bubble
+    // phases (not reliably before either one), so a bubble-phase check
+    // catches what the capture-phase one, by itself, sometimes can't.
+    doc.addEventListener('click', this._onLateClickCheck, false);
     doc.addEventListener('change', this._onChange, true);
     doc.addEventListener('focusin', this._onFocusIn, true);
     doc.addEventListener('focusout', this._onFocusOut, true);
@@ -359,6 +384,7 @@ export class PagePilotRecorder {
 
   _detachListenersFrom(doc) {
     doc.removeEventListener('click', this._onClick, true);
+    doc.removeEventListener('click', this._onLateClickCheck, false);
     doc.removeEventListener('change', this._onChange, true);
     doc.removeEventListener('focusin', this._onFocusIn, true);
     doc.removeEventListener('focusout', this._onFocusOut, true);
@@ -579,6 +605,21 @@ export class PagePilotRecorder {
     }
   }
 
+  /**
+   * Bubble phase, deliberately separate from _onClick's capture-phase
+   * listener for the exact same 'click' event — see _attachListenersTo
+   * for why. Only ever resolves a pending deferred type check (see
+   * _flushTyping); does nothing else, so it can't duplicate or interfere
+   * with anything _onClick already does.
+   */
+  _onLateClickCheck() {
+    if (!this.recording || !this._pendingDeferredTypeCheck) return;
+    clearTimeout(this._pendingDeferredTypeCheck.timer);
+    const resolve = this._pendingDeferredTypeCheck.resolve;
+    this._pendingDeferredTypeCheck = null;
+    resolve();
+  }
+
   _onClick(e) {
     if (!this.recording) return;
     const el = e.target;
@@ -747,36 +788,33 @@ export class PagePilotRecorder {
     // is what's ending here (the overwhelmingly common case), this
     // retry simply finds nothing changed a moment later either and is a
     // no-op — it only ever produces a step when something genuinely did
-    // change.
-    setTimeout(() => {
-      if (!this.recording) return;
+    // change. Tracked on `this` (not just inside the timer's closure) so
+    // stop() can resolve it immediately when needed — see stop() for why
+    // that has to be its own explicit step, done deliberately later than
+    // any capture-phase click handling for the same click that's ending
+    // the recording (confirmed empirically: reading the value from
+    // capture phase of that very click can still be too early, while
+    // reading it from stop() — called from the bubble-phase handler that
+    // actually stops recording — is not).
+    const resolve = () => {
       const laterValue = buf.el.isContentEditable ? buf.el.textContent : buf.el.value;
-      if (laterValue === buf.startValue || laterValue === '') return; // truly nothing changed — a real typing session, not a widget
-
-      // The click that's still the last step recorded is, overwhelmingly
-      // likely, what triggered this delayed change (nothing else can run
-      // in between scheduling this and it firing, short of another real
-      // interaction happening in that instant — and confirmed with a real
-      // date picker, that click is the calendar day itself). That click
-      // is worse than useless to keep: it would replay against whatever
-      // widget UI produced this value (a specific calendar day cell, in
-      // the date picker case) which isn't even in the DOM at replay time
-      // unless something first reopens it — an error that would stop the
-      // whole replay before ever reaching the `type` step below, which
-      // reproduces the correct final value entirely on its own and needs
-      // no such click to precede it.
+      if (laterValue === buf.startValue || laterValue === '') return; // a real typing session, not a widget — nothing to do
       const lastStep = this.steps[this.steps.length - 1];
       if (lastStep && lastStep.type === 'click') this.steps.pop();
-
       this._recordTypeValue(buf, laterValue);
+    };
+    const timer = setTimeout(() => {
+      this._pendingDeferredTypeCheck = null;
+      resolve();
     }, 0);
+    this._pendingDeferredTypeCheck = { timer, resolve };
   }
 
   /**
    * Records (or merges into an existing step for the same field — see
    * _flushTyping for the full rationale) a `type` step for `buf.el`
    * holding `value`. Shared between the normal flush path and the
-   * deferred retry in _flushIfBlurred.
+   * deferred retry inside _flushTyping itself.
    *
    * Walks backwards past any `pressKey` steps that ALSO targeted this
    * same field — those are just part of clearing/editing it in place

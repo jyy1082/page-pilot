@@ -3,6 +3,39 @@
 All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.6]
+
+### Fixed
+- **1.0.5's date picker fix still lost the date in one specific case,
+  found from a real report: selecting a date and then immediately
+  clicking Stop, with nothing else clicked in between.** The deferred
+  check that 1.0.5 introduced was being resolved too early by this
+  recorder's own capture-phase click handling for that same Stop click —
+  which runs *before* Stop's own handler calls `stop()` — at a point
+  where the date picker's value hadn't necessarily landed yet (confirmed
+  empirically: the value showed up somewhere between that click's capture
+  and bubble phases, not reliably before either one). `stop()` now
+  resolves any still-pending check as an explicit, deliberate step of its
+  own — separate from the capture-phase handling that runs first for the
+  same click that triggers it — since by the time `stop()` itself runs
+  (from Stop's own bubble-phase handler), real time has passed and the
+  value has reliably settled. A secondary, bubble-phase click check was
+  also added as a general safety net for the case where recording
+  *doesn't* stop immediately (e.g. moving on to fill in the next field).
+- Replaced the previous synthetic reproductions of this bug (a plain
+  value-set, a `requestAnimationFrame`-delayed one, a `setTimeout`-delayed
+  one) with a real one: `jquery` and `bootstrap-datepicker` are now
+  devDependencies (test-only, not a runtime dependency of page-pilot
+  itself) exercised by a dedicated test script, after each synthetic
+  attempt turned out to behave differently from what the real library
+  actually does — including one that couldn't be reproduced with any
+  synthetic delay short of the real thing, which is exactly why this
+  needed the real library to test meaningfully. 5 new tests: date
+  selection with an immediate Stop click (the exact reported scenario),
+  with a short wait first (the previously-passing case, to confirm it
+  still holds), and typing the date directly (unaffected by any of this,
+  confirmed to still just work).
+
 ## [1.0.5]
 
 ### Fixed

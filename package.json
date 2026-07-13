@@ -1,6 +1,6 @@
 {
   "name": "page-pilot",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A dependency-free, four-layer toolkit for visualized browser automation: page-pilot (playback with an animated cursor, click ripples, and highlight borders), page-pilot-recorder (turn real clicks/typing into a step array), page-pilot-skills (turn a recording into a reusable, named skill), and a bookmarklet toolkit tying them together with no install required.",
   "type": "module",
   "main": "src/page-pilot.js",
@@ -18,15 +18,18 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "npm run test:core && npm run test:recorder && npm run test:skills && npm run test:toolkit",
+    "test": "npm run test:core && npm run test:recorder && npm run test:real-datepicker && npm run test:skills && npm run test:toolkit",
     "test:core": "node test/core/browser-test.mjs",
     "test:recorder": "node test/recorder/browser-test.mjs",
+    "test:real-datepicker": "node test/recorder/real-datepicker-test.mjs",
     "test:skills": "node test/skills/browser-test.mjs",
     "test:toolkit": "node test/toolkit/browser-test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.40.0",
-    "@sparticuz/chromium": "^149.0.0"
+    "@sparticuz/chromium": "^149.0.0",
+    "jquery": "^3.6.0",
+    "bootstrap-datepicker": "^1.10.0"
   },
   "keywords": [
     "browser-automation",

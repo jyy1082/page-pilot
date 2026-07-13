@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>real date picker fixture</title>
+</head>
+<body>
+  <input type="text" id="birthdayStr" name="birthdayStr" class="date-picker" data-date-format="mm/dd/yyyy" />
+  <button id="stop-btn" data-ppr-ignore>Stop</button>
+
+  <script src="/node_modules/jquery/dist/jquery.min.js"></script>
+  <script src="/node_modules/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js"></script>
+  <script type="module">
+    import { PagePilotRecorder } from '/src/page-pilot-recorder.js';
+    window.__recorder = new PagePilotRecorder({ ui: false });
+    document.getElementById('stop-btn').addEventListener('click', () => {
+      window.__lastSteps = window.__recorder.stop();
+    });
+    // Matches how the real site initializes it — same options, same
+    // data-date-format-driven config bootstrap-datepicker itself reads.
+    $('.date-picker').datepicker({ autoclose: true, todayHighlight: true });
+  </script>
+</body>
+</html>

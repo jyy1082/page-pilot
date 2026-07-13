@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body>
+  <label for="last-name">Last Name:</label>
+  <input id="last-name" type="text" value="" />
+
+  <label for="first-name">First Name:</label>
+  <input id="first-name" type="text" placeholder="Enter first name" />
+
+  <input id="no-label-field" type="text" placeholder="Falls back to this" />
+
+  <select id="country-select">
+    <option value="">--</option>
+    <option value="us">US</option>
+    <option value="jp">JP</option>
+  </select>
+
+  <input id="agree-checkbox" type="checkbox" />
+
+  <button id="submit-btn">Submit</button>
+
+  <!-- hidden / disabled — should never show up in a scan -->
+  <input id="hidden-field" type="text" style="display:none;" />
+  <input id="disabled-field" type="text" disabled />
+  <input type="hidden" id="truly-hidden" value="secret" />
+
+  <!-- duplicate id — a stable selector can't be built from it, so this
+       should be skipped from the scan entirely rather than guessed at -->
+  <button id="dup-btn">One</button>
+  <button id="dup-btn">Two</button>
+
+  <a id="a-link" href="#somewhere">Go somewhere</a>
+
+  <div contenteditable="true" id="rich-text">Some rich text</div>
+
+  <script type="module">
+    import * as Agent from '/src/page-pilot-agent.js';
+    window.Agent = Agent;
+  </script>
+</body>
+</html>

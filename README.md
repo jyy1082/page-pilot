@@ -1,8 +1,8 @@
 # page-pilot
 
-**Version 1.0.6** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 1.1.1** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
-A dependency-free toolkit for visualized browser automation, in four
+A dependency-free toolkit for visualized browser automation, in five
 layers that live in this one repository:
 
 | Layer | File | What it does |
@@ -11,11 +11,14 @@ layers that live in this one repository:
 | **Recorder** | `src/page-pilot-recorder.js` | Turns real clicks/typing/selecting into the exact step array the core expects |
 | **Skills** | `src/page-pilot-skills.js` | Turns a recording into a reusable, named "skill" — specific values become named parameters you can swap out later |
 | **Toolkit** | `src/toolkit.js` | A bookmarklet: drag one link to your bookmarks bar, click it on any site to get a record/run panel — no install, no extension |
+| **Agent** *(preview)* | `src/page-pilot-agent.js` + `extension/` | A Chrome extension: given an instruction and a reference skill, decides one action at a time from the page's real current state — see [Agent](#agent-preview) below |
 
 Each layer only depends on the ones before it in this table — the core
 engine has zero dependencies at all, the recorder only produces steps the
-core understands, skills depends on nothing beyond the DOM, and the
-toolkit ties all three together with a UI. You can use any layer on its own.
+core understands, skills depends on nothing beyond the DOM, the toolkit
+ties the first three together with a UI, and the agent runs on top of
+the core engine and (optionally) a skill as a reference. You can use any
+layer on its own.
 
 ## Quick start — no code at all
 
@@ -369,15 +372,73 @@ bookmarklet — see "Quick start" at the top for the install link.
 
 ---
 
+---
+
+# Agent (preview)
+
+A Chrome extension (Manifest V3) built on the core engine. Given a
+natural-language instruction and, optionally, a reference skill (a
+recorded step sequence used as a rough route map, not a script to
+blindly replay), it decides one action at a time from the page's actual
+current state — so it can adapt when the real page doesn't quite match
+what the reference skill assumed, rather than committing to a full plan
+before anything has actually happened.
+
+## Why this needed to be an extension, not the bookmarklet
+
+The bookmarklet's injected script lives and dies with the current page —
+fine for the toolkit, since recording and running a skill both happen
+within a single page's lifetime. An agent loop is different: a real
+task's steps often submit a form or follow a link, reloading or
+navigating the page entirely, which would destroy a bookmarklet's script
+mid-task with no way to resume. This extension keeps all task state
+(the instruction, the reference skill, the history of what's happened so
+far) in its background service worker, keyed by tab — not in the page —
+so a fresh content script reloading after a navigation can pick the same
+task back up exactly where it left off.
+
+## Current state
+
+The step loop, task state management, page scanning, and validation of
+whatever a model decides are all built and tested. The actual model call
+is a deliberate stub (`callModel()` in `extension/background/background.js`)
+— it throws with a clear message rather than silently doing nothing.
+Wiring in a real model only requires changing that one function; nothing
+else needs to know or care which model it ends up being.
+
+Tested with a real page and a real page-pilot core engine, with only the
+`chrome.*` extension APIs faked — the strongest verification available
+in the environment this was built in, which turned out not to be able to
+load a real, unpacked Chrome extension at all (see CHANGELOG.md's 1.1.1
+entry for what was actually tried). Genuine end-to-end confirmation — a
+real Chrome actually loading this — still needs to happen in an actual
+install; see "Trying it" below.
+
+## Trying it
+
+```bash
+git clone https://github.com/jyy1082/page-pilot
+```
+
+Then in Chrome: `chrome://extensions` → enable **Developer mode** → **Load
+unpacked** → select the cloned repository's root folder (where
+`manifest.json` lives). Opening the browser's own extension inspector for
+the service worker shows `PP_AGENT_CONTENT_READY` messages arriving as
+content scripts announce themselves on each page — useful for confirming
+the wiring is working even before a real model is connected.
+
 ## Testing
 
 ```bash
 npm install
-npm test               # all four layers
+npm test               # all five layers
 npm run test:core      # just one layer
 npm run test:recorder
 npm run test:skills
 npm run test:toolkit
+npm run test:agent
+npm run test:extension-background
+npm run test:extension-content
 ```
 
 Runs real-browser suites (Playwright + Chromium via `@sparticuz/chromium`

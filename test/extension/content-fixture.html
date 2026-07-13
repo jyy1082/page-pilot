@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body>
+  <input id="last-name" type="text" />
+  <button id="submit-btn">Submit</button>
+
+  <script>
+    // Minimal fake chrome.* surface, injected before content.js loads.
+    // getURL just resolves to this same test server, which already
+    // serves the real src/*.js files from the repo root — so content.js's
+    // real dynamic import() of page-pilot.js and page-pilot-agent.js
+    // exercises the actual files, not a stand-in.
+    window.__sentMessages = [];
+    window.__messageListeners = [];
+    window.chrome = {
+      runtime: {
+        getURL(path) { return location.origin + '/' + path; },
+        sendMessage(message) {
+          window.__sentMessages.push(message);
+          return Promise.resolve(undefined);
+        },
+        onMessage: {
+          addListener(fn) { window.__messageListeners.push(fn); },
+        },
+      },
+    };
+  </script>
+  <script src="/extension/content/content.js"></script>
+</body>
+</html>

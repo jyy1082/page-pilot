@@ -3,6 +3,94 @@
 All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1]
+
+### Added
+- **34 new tests for the extension's background/content logic**, after
+  determining that genuine end-to-end testing (a real Chrome actually
+  loading this as an unpacked extension) isn't possible in this sandbox:
+  its available Chromium build's startup log shows zero mention of
+  extensions anywhere, with `--load-extension` silently ignored — no
+  error, no warning, nothing — strongly suggesting the extensions
+  subsystem was compiled out entirely (a plausible size optimization for
+  a build meant for serverless functions, which have no use for browser
+  extensions). Tried several other angles first — `--headless=new`
+  instead of the legacy headless mode, `--no-zygote` to work around an
+  unrelated sandboxing error, verbose (`--v=1`) logging — none of which
+  changed the outcome, which is what pointed at the binary itself rather
+  than a fixable flag or environment issue.
+  - `test/extension/background-test.mjs` (25 tests): a minimal in-memory
+    fake of the `chrome.*` surface background.js actually uses
+    (`chrome.storage.session`, `chrome.tabs.sendMessage`,
+    `chrome.tabs.onRemoved`) lets its real state-machine logic run for
+    real — task storage, the step loop, history accumulation across a
+    simulated navigation, the step-count safety cap, and done/blocked/
+    error handling — without needing a live browser extension context at
+    all. Required exporting a few previously-internal functions
+    (`getTask`/`saveTask`/`clearTask`/`advanceTask`/`handleMessage`) and
+    adding a test-only hook (`__setCallModelForTesting`) to swap in a fake
+    model — harmless additions with no effect on real behavior, but
+    necessary for the "success path" (a model returning real decisions)
+    to be testable at all, not just the current "throws because no model
+    is wired in yet" default.
+  - `test/extension/content-test.mjs` (9 tests): a real page and a real
+    page-pilot core engine (via Playwright), with only the `chrome.*`
+    extension APIs faked — the strongest verification available here
+    short of genuine extension loading. Confirms the initial page-scan
+    announcement, responding to a scan request, executing a decided
+    action through the real engine end to end (including a failure being
+    correctly reported as an error rather than silently swallowed), and
+    that the not-yet-built-UI message types (`TASK_DONE`/`TASK_BLOCKED`)
+    are at least handled without throwing.
+  - Real Chrome extension loading — the one thing this environment
+    couldn't verify — still needs to happen in an actual Chrome install;
+    see the Agent section of the README for how to load it there.
+
+## [1.1.0]
+
+### Added
+- **A fifth layer: `page-pilot-agent`, plus a Chrome extension (Manifest
+  V3) to run it.** Given a natural-language instruction and a reference
+  skill (a recorded step sequence used as a rough route map, not a
+  script to blindly replay), decides one action at a time from the
+  page's actual current state — rather than planning the whole sequence
+  upfront — so it can adapt when the real page doesn't match what a
+  reference skill assumed.
+  - `src/page-pilot-agent.js`: page scanning (a compact, model-readable
+    summary of interactive elements — not the page's full HTML), context
+    assembly, and validation of whatever a model decides next. Never
+    touches the DOM to execute anything and never calls any AI API
+    itself — both are the caller's job, kept out of this module so it
+    stays testable without a live model. 27 new real-browser tests.
+  - This needed to be a genuine browser extension, not an extension of
+    the existing bookmarklet: a step-by-step agent loop has to survive
+    the page navigating away mid-task (a save button that reloads the
+    page, a link to a different page) — a bookmarklet's injected script
+    is destroyed the moment that happens, with no way to resume. Task
+    state (the instruction, the reference skill, history so far) lives
+    in the extension's background service worker, keyed by tab — not in
+    the page itself — precisely so a fresh content script reloading
+    after a navigation can pick a task back up from where it left off.
+  - `extension/background/background.js`: owns all task state
+    (`chrome.storage.session`-backed, since MV3 service workers get put
+    to sleep and lose plain in-memory state at any time), and runs the
+    per-step "ask what to do next, then act on it" loop. Includes a
+    step-count safety cap (a model that never actually finishes the
+    instruction shouldn't be able to loop indefinitely).
+  - `extension/content/content.js`: re-announces itself and hands over a
+    fresh page scan on every single page load, including after a
+    navigation mid-task — it holds no task state of its own. Executes
+    decided actions through page-pilot's own core engine (the same
+    animated cursor, modal-obstruction handling, and iframe-reload
+    waiting the bookmarklet toolkit already gets, with no separate
+    execution path to keep in sync).
+  - The actual model call (`callModel()` in background.js) is
+    deliberately a stub for now — it throws with a clear message rather
+    than silently doing nothing. Everything else (state management, the
+    step loop, the safety cap, validation of whatever comes back) works
+    and is tested independent of which model eventually gets wired in;
+    only that one function needs to change once one is chosen.
+
 ## [1.0.6]
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "page-pilot",
-  "version": "1.0.6",
+  "version": "1.1.1",
   "description": "A dependency-free, four-layer toolkit for visualized browser automation: page-pilot (playback with an animated cursor, click ripples, and highlight borders), page-pilot-recorder (turn real clicks/typing into a step array), page-pilot-skills (turn a recording into a reusable, named skill), and a bookmarklet toolkit tying them together with no install required.",
   "type": "module",
   "main": "src/page-pilot.js",
@@ -9,7 +9,8 @@
     ".": "./src/page-pilot.js",
     "./recorder": "./src/page-pilot-recorder.js",
     "./skills": "./src/page-pilot-skills.js",
-    "./toolkit": "./src/toolkit.js"
+    "./toolkit": "./src/toolkit.js",
+    "./agent": "./src/page-pilot-agent.js"
   },
   "files": [
     "src",
@@ -18,12 +19,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "npm run test:core && npm run test:recorder && npm run test:real-datepicker && npm run test:skills && npm run test:toolkit",
+    "test": "npm run test:core && npm run test:recorder && npm run test:real-datepicker && npm run test:skills && npm run test:toolkit && npm run test:agent && npm run test:extension-background && npm run test:extension-content",
     "test:core": "node test/core/browser-test.mjs",
     "test:recorder": "node test/recorder/browser-test.mjs",
     "test:real-datepicker": "node test/recorder/real-datepicker-test.mjs",
     "test:skills": "node test/skills/browser-test.mjs",
-    "test:toolkit": "node test/toolkit/browser-test.mjs"
+    "test:toolkit": "node test/toolkit/browser-test.mjs",
+    "test:agent": "node test/agent/browser-test.mjs",
+    "test:extension-background": "node test/extension/background-test.mjs",
+    "test:extension-content": "node test/extension/content-test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.40.0",

@@ -3,6 +3,35 @@
 All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0]
+
+### Added
+- **The agent's model call is wired up to OpenAI's Chat Completions API**,
+  replacing the previous stub. Uses basic JSON mode (guarantees
+  syntactically valid JSON, not a specific shape) plus the existing
+  `validateDecision()` as the actual shape check — a parse or validation
+  failure blocks the task with a clear reason rather than silently
+  retrying or guessing.
+- A system prompt describing the task, the action vocabulary (matching
+  page-pilot's own step types), and a few explicit rules: never invent a
+  selector that isn't in the current page's element list, don't blindly
+  retry an action the history shows already failed, and prefer answering
+  "blocked" over guessing — especially for anything that deletes, pays,
+  submits, or otherwise can't easily be undone.
+- **The API key is hardcoded for now — a deliberate, temporary,
+  local-testing-only choice**, not something to ship as-is: it's in
+  plain text, easy to accidentally commit, with no way to revoke access
+  for just one person if it leaks. See "Configuring the model" in the
+  README for the exact tradeoff and what needs to change (a settings UI
+  backed by `chrome.storage.local`) before this goes anywhere near a
+  real release.
+- 2 new tests: the previously-untestable "success" path now genuinely
+  exercises real decisions flowing through the state machine (the
+  earlier stub could only ever be tested for the "throws" case), and a
+  new test confirms the specific "no API key configured yet" case blocks
+  clearly rather than making a doomed network request or throwing
+  uncaught.
+
 ## [1.1.1]
 
 ### Added

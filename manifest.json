@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PagePilot Agent",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "AI-guided, step-by-step automation built on page-pilot. Given an instruction and a reference skill, decides one action at a time from the page's actual current state — survives page navigation, since task state lives in the background, not the page.",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": ["<all_urls>"],

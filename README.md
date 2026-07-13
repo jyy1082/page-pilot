@@ -1,6 +1,6 @@
 # page-pilot
 
-**Version 1.1.1** · see [CHANGELOG.md](./CHANGELOG.md) for release history
+**Version 1.2.0** · see [CHANGELOG.md](./CHANGELOG.md) for release history
 
 A dependency-free toolkit for visualized browser automation, in five
 layers that live in this one repository:
@@ -400,11 +400,9 @@ task back up exactly where it left off.
 ## Current state
 
 The step loop, task state management, page scanning, and validation of
-whatever a model decides are all built and tested. The actual model call
-is a deliberate stub (`callModel()` in `extension/background/background.js`)
-— it throws with a clear message rather than silently doing nothing.
-Wiring in a real model only requires changing that one function; nothing
-else needs to know or care which model it ends up being.
+whatever a model decides are all built and tested. The model call itself
+now goes to OpenAI's Chat Completions API (`extension/background/background.js`);
+see "Configuring the model" below to actually try it.
 
 Tested with a real page and a real page-pilot core engine, with only the
 `chrome.*` extension APIs faked — the strongest verification available
@@ -413,6 +411,35 @@ load a real, unpacked Chrome extension at all (see CHANGELOG.md's 1.1.1
 entry for what was actually tried). Genuine end-to-end confirmation — a
 real Chrome actually loading this — still needs to happen in an actual
 install; see "Trying it" below.
+
+## Configuring the model
+
+Open `extension/background/background.js` and set `OPENAI_API_KEY` near
+the top of the file to a real key.
+
+```js
+const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE'; // ← replace this
+const OPENAI_MODEL = 'gpt-4o';                     // ← or another chat-completions-capable model
+```
+
+**This is a temporary, local-testing-only arrangement** — a real API key
+hardcoded into source is not safe for anything beyond that. It's stored
+in plain text, in a file that's easy to accidentally commit, with no way
+to revoke access to just one person if it leaks. Before this goes near a
+real release, it needs to move to a proper settings UI backed by
+`chrome.storage.local` (entered by whoever's using the extension, never
+committed to source) — nothing else in this file needs to change when
+that happens, only this one block. If you're trying this out yourself:
+don't commit your key, and treat it as compromised (rotate it) if you
+ever do.
+
+The request uses OpenAI's basic JSON mode (`response_format: { type:
+"json_object" }`), which guarantees syntactically valid JSON but not
+that it matches the exact shape needed — that's what
+`validateDecision()` (in `src/page-pilot-agent.js`) is for, rejecting
+anything malformed rather than trusting it blindly. A parse or
+validation failure blocks the task with a clear reason rather than
+silently retrying or guessing.
 
 ## Trying it
 

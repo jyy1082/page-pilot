@@ -2,7 +2,7 @@
 
 **中文** · [English](./README.md)
 
-**版本 1.1.1** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
+**版本 1.2.0** · 完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)
 
 一套不依赖任何第三方库、用于"可视化"浏览器自动化的工具集，分五层，全部放在这一个仓库里：
 
@@ -258,9 +258,22 @@ await cursor.run(filledSteps)
 
 ## 目前进度
 
-循环怎么跑、任务状态怎么管理、页面怎么扫描、AI 返回的结果怎么校验，这些都已经搭好并且测试过了。真正调用模型这一步（`extension/background/background.js` 里的 `callModel()`）故意先留成一个占位符——调用了会直接抛出一个说明清楚的错误，而不是悄悄什么都不做。以后接入真正的模型，只需要改这一个函数，其他部分完全不需要知道、也不需要关心接的是哪个模型。
+循环怎么跑、任务状态怎么管理、页面怎么扫描、AI 返回的结果怎么校验，这些都已经搭好并且测试过了。真正调用模型这一步（`extension/background/background.js`）现在接的是 OpenAI 的 Chat Completions 接口——具体怎么配置见下面"配置模型"。
 
 用真实页面 + 真实的 page-pilot 核心引擎测试过，只是把 `chrome.*` 这部分插件专用 API 模拟掉了——这是开发这个项目的环境里能做到的最强验证了，因为这个环境本身没法真的加载一个完整的 Chrome 插件（具体折腾过程见 CHANGELOG.md 里 1.1.1 那条记录）。真正意义上的端到端确认——让真实的 Chrome 实际加载这个插件——还需要你在自己的真实 Chrome 里完成，见下面"怎么试用"。
+
+## 配置模型
+
+打开 `extension/background/background.js`，把靠近文件开头的 `OPENAI_API_KEY` 改成你自己的真实 key。
+
+```js
+const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE'; // ← 改成你自己的 key
+const OPENAI_MODEL = 'gpt-4o';                     // ← 或者换成其他支持 chat completions 的模型
+```
+
+**这只是临时的、仅供本地自己测试的做法**——真实的 API key 硬编码在代码里，除了自己测试之外任何场景都不安全：明文存放，很容易不小心提交进版本控制，泄漏了也没法只吊销某一个人的权限。真正要发布之前，这块必须换成一个正经的设置界面，用 `chrome.storage.local` 存（由使用插件的人自己输入，永远不提交进源代码）——到那时候，其他部分完全不需要改，只需要改这一小块。如果你自己要试：别把你的 key 提交进去，万一不小心提交了，就当这个 key 已经泄漏了，直接去吊销重新生成一个。
+
+请求用的是 OpenAI 最基础的 JSON 模式（`response_format: { type: "json_object" }`），能保证返回的是**语法合法**的 JSON，但不保证一定符合我们需要的具体格式——这正是 `validateDecision()`（在 `src/page-pilot-agent.js` 里）存在的意义，不管返回的内容长什么样，都会先校验一遍再决定要不要信。解析失败或者校验不通过，都会让任务进入"卡住"状态并给出清楚的原因，而不是悄悄重试或者瞎猜。
 
 ## 怎么试用
 

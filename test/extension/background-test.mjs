@@ -215,6 +215,19 @@ async function main() {
     check('the block reason explains it was the step cap, not some other failure', task.blockedReason.includes('40 steps'));
   }
 
+  console.log('=== the real default model call (no test override) blocks clearly when no API key is configured ===');
+  {
+    bg.__setCallModelForTesting(null); // reset to the real defaultCallModel — OPENAI_API_KEY is still the placeholder in this checkout
+    await bg.saveTask(7, { instruction: 'x', referenceSkill: null, history: [], status: 'running' });
+
+    bg.handleMessage({ type: 'PP_AGENT_CONTENT_READY', url: 'https://example.com/', elements: [] }, makeSender(7), () => {});
+    await new Promise((r) => setTimeout(r, 10));
+
+    const task = await bg.getTask(7);
+    check('blocked rather than silently doing nothing or throwing uncaught', task.status === 'blocked');
+    check('the reason clearly points at the missing API key, not a generic failure', task.blockedReason.toLowerCase().includes('api key'));
+  }
+
   console.log('=== a tab closing mid-task clears its stored state ===');
   {
     await bg.saveTask(6, { instruction: 'x', referenceSkill: null, history: [], status: 'running' });
